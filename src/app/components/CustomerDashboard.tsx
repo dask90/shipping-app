@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Card } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
+import { Input } from "@/app/components/ui/input";
 import {
   Package,
   TruckIcon,
@@ -8,6 +10,7 @@ import {
   Clock,
   MapPin,
   Plus,
+  Search,
 } from "lucide-react";
 
 interface CustomerDashboardProps {
@@ -19,7 +22,16 @@ import { useShipment } from '@/app/context/ShipmentContext';
 export function CustomerDashboard({
   onNavigate,
 }: CustomerDashboardProps) {
-  const { shipments } = useShipment();
+  const { shipments, setTrackingId } = useShipment();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery) {
+      setTrackingId(searchQuery.toUpperCase());
+      onNavigate("tracking");
+    }
+  };
 
   // Filter only for the "logged in" customer (Kwame Mensah - simulated)
   const myShipments = shipments; // showing all for demo, typically filtered by user ID
@@ -69,9 +81,18 @@ export function CustomerDashboard({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-white p-6 pb-24">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl mb-1">Welcome back, John</h1>
-          <p className="text-blue-100">Manage your shipments</p>
+        <div className="max-w-4xl mx-auto flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl mb-1">Welcome back, John</h1>
+            <p className="text-blue-100">Manage your shipments</p>
+          </div>
+          <Button
+            variant="ghost"
+            className="text-white hover:bg-white/20"
+            onClick={() => onNavigate("auth")}
+          >
+            Logout
+          </Button>
         </div>
       </div>
 
@@ -131,6 +152,23 @@ export function CustomerDashboard({
           Create New Shipment
         </Button>
 
+        {/* Global Tracking Search */}
+        <div className="mb-8">
+          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Quick Track</h2>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Enter Tracking ID (e.g. SHP001)"
+                className="pl-10 h-12 shadow-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button type="submit" className="h-12 px-6">Track</Button>
+          </form>
+        </div>
+
         {/* Recent Shipments */}
         <div className="mb-6">
           <h2 className="mb-4">Recent Shipments</h2>
@@ -139,7 +177,10 @@ export function CustomerDashboard({
               <Card
                 key={shipment.id}
                 className="p-4 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => onNavigate("tracking")}
+                onClick={() => {
+                  setTrackingId(shipment.id);
+                  onNavigate("tracking");
+                }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
@@ -189,7 +230,10 @@ export function CustomerDashboard({
             </button>
             <button
               className="flex flex-col items-center py-2 text-muted-foreground"
-              onClick={() => onNavigate("tracking")}
+              onClick={() => {
+                setTrackingId(null);
+                onNavigate("tracking");
+              }}
             >
               <TruckIcon className="w-5 h-5 mb-1" />
               <span className="text-xs">Track</span>

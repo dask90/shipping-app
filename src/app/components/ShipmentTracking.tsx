@@ -1,51 +1,92 @@
+import { useState } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { ArrowLeft, Package, MapPin, Phone, User, CheckCircle, Clock, TruckIcon } from 'lucide-react';
+import { Input } from '@/app/components/ui/input';
+import { ArrowLeft, Package, MapPin, Phone, User, CheckCircle, Clock, TruckIcon, Search } from 'lucide-react';
 
-import { useShipment } from '@/app/context/ShipmentContext';
+import { useShipment, ShipmentStatus } from '@/app/context/ShipmentContext';
 
 interface ShipmentTrackingProps {
   onNavigate: (screen: string) => void;
 }
 
 export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
-  const { shipments } = useShipment();
-  // Simulate tracking the first active shipment or specific ID
-  const shipment = shipments.find(s => s.id === 'SHP001234') || shipments[0];
+  const { shipments, trackingId, setTrackingId } = useShipment();
+  const [searchId, setSearchId] = useState('');
 
-  const showAgentDetails = ['assigned', 'picked_up', 'in_transit', 'delivered'].includes(shipment?.status || '');
+  // Find the specific shipment
+  const shipment = shipments.find(s => s.id === (trackingId || searchId.toUpperCase()));
 
-  // Mock steps based on status for the timeline
-  const getTrackingSteps = (status: string) => {
-    const steps = [
-      { status: 'completed', title: 'Order Placed', description: 'Shipment created', timestamp: shipment?.date },
-      { status: status === 'pending_approval' ? 'active' : 'completed', title: 'Pending Approval', description: 'Waiting for staff approval' },
-      {
-        status: status === 'approved' ? 'active' : ['assigned', 'picked_up', 'in_transit', 'delivered'].includes(status) ? 'completed' : 'pending',
-        title: 'Approved',
-        description: 'Approved by staff'
-      },
-      {
-        status: status === 'assigned' ? 'active' : ['picked_up', 'in_transit', 'delivered'].includes(status) ? 'completed' : 'pending',
-        title: 'Agent Assigned',
-        description: 'Delivery agent assigned'
-      },
-      {
-        status: status === 'in_transit' ? 'active' : status === 'delivered' ? 'completed' : 'pending',
-        title: 'In Transit',
-        description: 'On the way to destination'
-      },
-      {
-        status: status === 'delivered' ? 'completed' : 'pending',
-        title: 'Delivered',
-        description: 'Package delivered'
-      }
-    ];
-    return steps;
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchId) {
+      setTrackingId(searchId.toUpperCase());
+    }
   };
 
-  const trackingSteps = getTrackingSteps(shipment?.status || 'pending_approval');
+  const getStatusIcon = (status: ShipmentStatus) => {
+    switch (status) {
+      case 'delivered': return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'in_transit': return <TruckIcon className="w-5 h-5 text-blue-600" />;
+      default: return <Clock className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
+  const showAgentDetails = shipment && ['assigned', 'picked_up', 'in_transit', 'delivered'].includes(shipment.status);
+
+  if (!shipment && !trackingId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="bg-primary text-white p-6 pb-20">
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={() => onNavigate('dashboard')}
+              className="flex items-center mb-4 text-blue-100 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Back
+            </button>
+            <h1 className="text-2xl mb-2">Track Shipment</h1>
+            <p className="text-blue-100">Enter your tracking ID below</p>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 -mt-10">
+          <Card className="p-6 shadow-xl">
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="e.g. SHP001"
+                  className="pl-10"
+                  value={searchId}
+                  onChange={(e) => setSearchId(e.target.value)}
+                />
+              </div>
+              <Button type="submit">Track</Button>
+            </form>
+          </Card>
+
+          <div className="mt-12 text-center text-muted-foreground">
+            <Package className="w-16 h-16 mx-auto mb-4 opacity-10" />
+            <p>No active shipment selected. Enter an ID to track progress.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!shipment) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <Package className="w-16 h-16 text-muted mb-4" />
+        <h2 className="text-xl mb-2">Shipment Not Found</h2>
+        <p className="text-muted-foreground mb-6">We couldn't find a shipment with ID "{trackingId}"</p>
+        <Button onClick={() => { setTrackingId(null); setSearchId(''); }}>Try Another ID</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -69,7 +110,16 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
         {/* Map View */}
         <Card className="shadow-lg mb-6 overflow-hidden border-0">
           <div className="w-full h-64 bg-muted relative">
-            <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=Kumasi,Ghana&zoom=10&size=600x400&path=color:0x0000ff|weight:5|Accra,Ghana|Kumasi,Ghana&key=YOUR_API_KEY_HERE')] bg-cover bg-center" />
+            <section className="absolute inset-0 w-full h-full">
+              <iframe
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(shipment?.toCity || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+              ></iframe>
+            </section>
 
             <div className="absolute bottom-4 right-4 bg-background/90 p-2 rounded-lg backdrop-blur-sm text-xs shadow-sm">
               <div className="font-semibold">Live Location</div>
@@ -154,46 +204,31 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
         <Card className="p-6 shadow-md mb-4">
           <h3 className="mb-6">Shipment Timeline</h3>
           <div className="space-y-6">
-            {trackingSteps.map((step, index) => (
+            {[...shipment.history].reverse().map((entry, index) => (
               <div key={index} className="flex items-start">
                 <div className="relative">
                   {/* Icon */}
-                  <div
-                    className={`w - 10 h - 10 rounded - full flex items - center justify - center ${step.status === 'completed'
-                      ? 'bg-green-100'
-                      : step.status === 'active'
-                        ? 'bg-blue-100'
-                        : 'bg-muted'
-                      } `}
-                  >
-                    {step.status === 'completed' ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    ) : step.status === 'active' ? (
-                      <TruckIcon className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <Clock className="w-5 h-5 text-muted-foreground" />
-                    )}
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-muted/50">
+                    {getStatusIcon(entry.status)}
                   </div>
 
                   {/* Connecting Line */}
-                  {index < trackingSteps.length - 1 && (
-                    <div
-                      className={`absolute left - 5 top - 10 w - 0.5 h - 12 ${step.status === 'completed' ? 'bg-green-300' : 'bg-border'
-                        } `}
-                    />
+                  {index < shipment.history.length - 1 && (
+                    <div className="absolute left-5 top-10 w-0.5 h-12 bg-border" />
                   )}
                 </div>
 
                 <div className="ml-4 flex-1">
-                  <div className="mb-1">{step.title}</div>
-                  <div className="text-sm text-muted-foreground mb-1">
-                    {step.description}
-                  </div>
-                  {step.timestamp && (
-                    <div className="text-xs text-muted-foreground">
-                      {step.timestamp}
+                  <div className="flex justify-between items-start">
+                    <div className="font-semibold">{entry.description}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
+                      {entry.date}
                     </div>
-                  )}
+                  </div>
+                  <div className="text-sm text-muted-foreground flex items-center mt-1">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {entry.location}
+                  </div>
                 </div>
               </div>
             ))}

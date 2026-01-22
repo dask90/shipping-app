@@ -226,7 +226,16 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
                   <Label>Select Pickup Location</Label>
                   {/* Google Maps Placeholder */}
                   <div className="w-full h-48 bg-muted rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary/50 transition-colors">
-                    <div className="absolute inset-0 opacity-20 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=Accra,Ghana&zoom=13&size=600x300&key=YOUR_API_KEY_HERE')] bg-cover bg-center" />
+                    <section className="absolute inset-0 w-full h-full opacity-60">
+                      <iframe
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.pickupAddress || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                      ></iframe>
+                    </section>
                     <MapPin className="w-8 h-8 text-primary mb-2 z-10" />
                     <span className="text-sm text-muted-foreground font-medium z-10">
                       Tap to pin location on map
@@ -286,7 +295,16 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
                 <Label>Select Delivery Location</Label>
                 {/* Google Maps Placeholder */}
                 <div className="w-full h-48 bg-muted rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary/50 transition-colors">
-                  <div className="absolute inset-0 opacity-20 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=Kumasi,Ghana&zoom=13&size=600x300&key=YOUR_API_KEY_HERE')] bg-cover bg-center" />
+                  <section className="absolute inset-0 w-full h-full opacity-60">
+                    <iframe
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.destinationAddress || formData.destinationCity || 'Kumasi, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                    ></iframe>
+                  </section>
                   <MapPin className="w-8 h-8 text-destructive mb-2 z-10" />
                   <span className="text-sm text-muted-foreground font-medium z-10">
                     Tap to pin location on map

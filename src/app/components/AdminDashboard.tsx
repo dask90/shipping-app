@@ -22,7 +22,6 @@ import {
   Package,
   TruckIcon,
   DollarSign,
-  TrendingUp,
   Search,
   Filter,
   Download,
@@ -36,7 +35,7 @@ interface AdminDashboardProps {
 
 import { useShipment } from '@/app/context/ShipmentContext';
 
-export function AdminDashboard({ }: AdminDashboardProps) {
+export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { shipments } = useShipment();
   // Using context data instead of local static data
   const shipmentData = shipments;
@@ -73,12 +72,7 @@ export function AdminDashboard({ }: AdminDashboardProps) {
     }
   };
 
-  const analytics = {
-    totalRevenue: '₵124,580',
-    totalShipments: 156,
-    deliveryRate: '94.2%',
-    activeShipments: 23,
-  };
+  // Removed unused analytics
 
   // Filter Logic
   const filteredShipments = shipmentData.filter((shipment) => {
@@ -99,10 +93,15 @@ export function AdminDashboard({ }: AdminDashboardProps) {
       <div className="bg-white shadow-sm py-4">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-          <Button variant="outline" className="flex items-center">
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" className="hover:bg-muted" onClick={() => onNavigate('auth')}>
+              Logout
+            </Button>
+            <Button variant="outline" className="flex items-center">
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </Button>
+          </div>
         </div>
       </div>
 

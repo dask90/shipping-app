@@ -4,22 +4,24 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { Truck, Mail, Phone } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Truck, Mail, Phone, ShieldCheck } from 'lucide-react';
 
 interface AuthScreenProps {
-  onLogin: () => void;
+  onLogin: (role: 'customer' | 'staff' | 'agent' | 'admin') => void;
 }
 
 export function AuthScreen({ onLogin }: AuthScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [role, setRole] = useState<'customer' | 'staff' | 'agent' | 'admin'>('customer');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      onLogin();
-    }, 1000);
+      onLogin(role);
+    }, 800);
   };
 
   return (
@@ -66,6 +68,22 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                     placeholder="Enter password"
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Portal Access</Label>
+                  <Select value={role} onValueChange={(v: any) => setRole(v)}>
+                    <SelectTrigger>
+                      <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
+                      <SelectValue placeholder="Select portal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Customer Portal</SelectItem>
+                      <SelectItem value="staff">Staff Portal</SelectItem>
+                      <SelectItem value="agent">Agent Portal</SelectItem>
+                      <SelectItem value="admin">Admin Portal</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex justify-end">

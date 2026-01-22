@@ -5,7 +5,11 @@ import { useShipment } from '@/app/context/ShipmentContext';
 import { Package, MapPin, Truck, CheckCircle, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function AgentDashboard() {
+interface AgentDashboardProps {
+    onNavigate: (screen: string) => void;
+}
+
+export function AgentDashboard({ onNavigate }: AgentDashboardProps) {
     const { shipments, confirmPickup, markInTransit, markDelivered } = useShipment();
 
     // Filter for shipments assigned to "Kofi Boateng" (Mock logged-in agent)
@@ -20,7 +24,7 @@ export function AgentDashboard() {
         s.status === 'delivered'
     );
 
-    const handleUpdateLocation = (id: string) => {
+    const handleUpdateLocation = () => {
         const locations = ['Nsawam Checkpoint', 'Bunso Junction', 'Nkawkaw Rest Stop', 'Ejisu Toll Booth', 'Winneba Junction'];
         const randomLoc = locations[Math.floor(Math.random() * locations.length)];
         toast.info(`Location updated: ${randomLoc}`);
@@ -62,7 +66,7 @@ export function AgentDashboard() {
             case 'in_transit':
                 return (
                     <div className="flex gap-2">
-                        <Button onClick={() => handleUpdateLocation(id)} variant="outline" className="flex-1">
+                        <Button onClick={() => handleUpdateLocation()} variant="outline" className="flex-1">
                             <MapPin className="w-4 h-4 mr-2" />
                             Update Loc
                         </Button>
@@ -85,6 +89,14 @@ export function AgentDashboard() {
                         <div>
                             <h1 className="text-2xl mb-1">Agent Dashboard</h1>
                             <p className="opacity-90">Welcome, Kofi Boateng</p>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2 h-7 text-xs hover:bg-black/10 px-2"
+                                onClick={() => onNavigate('auth')}
+                            >
+                                Logout Portal
+                            </Button>
                         </div>
                         <div className="text-right">
                             <div className="text-3xl font-bold">{myTasks.length}</div>

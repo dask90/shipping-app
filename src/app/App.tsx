@@ -15,9 +15,9 @@ type Screen = 'auth' | 'dashboard' | 'create-shipment' | 'tracking' | 'notificat
 
 function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('auth');
-  const { userRole, setUserRole } = useShipment();
+  const { setUserRole, setTrackingId } = useShipment();
 
-  const handleLogin = (role: 'customer' | 'staff' | 'agent' | 'admin' = 'customer') => {
+  const handleLogin = (role: 'customer' | 'staff' | 'agent' | 'admin') => {
     setUserRole(role);
     switch (role) {
       case 'staff': setCurrentScreen('staff'); break;
@@ -28,27 +28,21 @@ function AppContent() {
   };
 
   const handleNavigate = (screen: string) => {
+    if (screen === 'auth') {
+      setUserRole('customer');
+      setTrackingId(null);
+    }
     setCurrentScreen(screen as Screen);
   };
 
-  // Demo Role Switcher
-  const RoleSwitcher = () => (
-    <div className="fixed bottom-4 right-4 z-50 flex gap-2 bg-black/80 p-2 rounded-lg backdrop-blur text-white text-xs">
-      <button onClick={() => handleLogin('customer')} className={`px-2 py-1 rounded ${userRole === 'customer' ? 'bg-primary' : 'hover:bg-white/20'}`}>Customer</button>
-      <button onClick={() => handleLogin('staff')} className={`px-2 py-1 rounded ${userRole === 'staff' ? 'bg-primary' : 'hover:bg-white/20'}`}>Staff</button>
-      <button onClick={() => handleLogin('agent')} className={`px-2 py-1 rounded ${userRole === 'agent' ? 'bg-primary' : 'hover:bg-white/20'}`}>Agent</button>
-      <button onClick={() => handleLogin('admin')} className={`px-2 py-1 rounded ${userRole === 'admin' ? 'bg-primary' : 'hover:bg-white/20'}`}>Admin</button>
-    </div>
-  );
-
   if (currentScreen === 'auth') {
-    return <AuthScreen onLogin={() => handleLogin('customer')} />;
+    return <AuthScreen onLogin={handleLogin} />;
   }
 
   const renderScreen = () => {
     switch (currentScreen) {
-      case 'staff': return <StaffDashboard />;
-      case 'agent': return <AgentDashboard />;
+      case 'staff': return <StaffDashboard onNavigate={handleNavigate} />;
+      case 'agent': return <AgentDashboard onNavigate={handleNavigate} />;
       case 'admin': return <AdminDashboard onNavigate={handleNavigate} />;
       case 'dashboard': return <CustomerDashboard onNavigate={handleNavigate} />;
       case 'create-shipment': return <CreateShipment onNavigate={handleNavigate} />;
@@ -62,7 +56,6 @@ function AppContent() {
   return (
     <>
       {renderScreen()}
-      {currentScreen !== 'auth' && <RoleSwitcher />}
       <Toaster />
     </>
   );

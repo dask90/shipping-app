@@ -22,7 +22,11 @@ import {
     AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 
-export function StaffDashboard() {
+interface StaffDashboardProps {
+    onNavigate: (screen: string) => void;
+}
+
+export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
     const { shipments, approveShipment, assignAgent } = useShipment();
     const [selectedAgent, setSelectedAgent] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -75,9 +79,18 @@ export function StaffDashboard() {
     return (
         <div className="min-h-screen bg-background pb-24">
             <div className="bg-primary text-white p-6 pb-20">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-2xl mb-1">Staff Dashboard</h1>
-                    <p className="text-blue-100">Manage approvals and assignments</p>
+                <div className="max-w-4xl mx-auto flex justify-between items-start">
+                    <div>
+                        <h1 className="text-2xl mb-1">Staff Dashboard</h1>
+                        <p className="text-blue-100">Manage approvals and assignments</p>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        className="text-white hover:bg-white/20"
+                        onClick={() => onNavigate('auth')}
+                    >
+                        Logout
+                    </Button>
                 </div>
             </div>
 
