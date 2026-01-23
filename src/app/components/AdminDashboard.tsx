@@ -31,11 +31,12 @@ import {
 import { NotificationCenter } from './NotificationCenter';
 
 interface AdminDashboardProps {
+  onNavigate: (screen: string) => void;
 }
 
 import { useShipment } from '@/app/context/ShipmentContext';
 
-export function AdminDashboard({ }: AdminDashboardProps) {
+export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps) {
   const { shipments, userProfile, signOut } = useShipment();
   // Using context data instead of local static data
   const shipmentData = shipments;

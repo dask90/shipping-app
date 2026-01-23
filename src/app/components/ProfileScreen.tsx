@@ -30,7 +30,7 @@ interface ProfileScreenProps {
 
 
 export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
-  const { userProfile, currentUser, shipments, signOut, updateProfile, uploadAvatar } = useShipment();
+  const { userProfile, currentUser, shipments, signOut, updateProfile, uploadAvatar, updateEmail } = useShipment();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);

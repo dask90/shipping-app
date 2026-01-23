@@ -10,9 +10,10 @@ import { toast } from 'sonner';
 import { NotificationCenter } from './NotificationCenter';
 
 interface AgentDashboardProps {
+    onNavigate: (screen: string) => void;
 }
 
-export function AgentDashboard({ }: AgentDashboardProps) {
+export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps) {
     const { shipments, currentUser, acceptRequest, confirmPickup, markInTransit, updateCurrentLocation, markDelivered, userProfile, signOut, sendMessage, fetchMessages } = useShipment();
 
     // UI States
@@ -255,8 +256,8 @@ export function AgentDashboard({ }: AgentDashboardProps) {
                     {messages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender_id === currentUser?.id
-                                    ? 'bg-accent text-accent-foreground rounded-br-none shadow-md shadow-accent/20'
-                                    : 'bg-white text-foreground rounded-bl-none shadow-sm'
+                                ? 'bg-accent text-accent-foreground rounded-br-none shadow-md shadow-accent/20'
+                                : 'bg-white text-foreground rounded-bl-none shadow-sm'
                                 }`}>
                                 {msg.content}
                                 <div className={`text-[9px] mt-1 ${msg.sender_id === currentUser?.id ? 'opacity-70' : 'text-muted-foreground'}`}>

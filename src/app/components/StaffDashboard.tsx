@@ -25,9 +25,10 @@ import {
 import { NotificationCenter } from './NotificationCenter';
 
 interface StaffDashboardProps {
+    onNavigate: (screen: string) => void;
 }
 
-export function StaffDashboard({ }: StaffDashboardProps) {
+export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps) {
     const { shipments, approveShipment, assignAgent, userProfile, signOut, availableAgents, issues, resolveIssue } = useShipment();
     const [selectedAgentId, setSelectedAgentId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
