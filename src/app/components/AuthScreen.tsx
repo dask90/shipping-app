@@ -7,21 +7,42 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Truck, Mail, Phone, ShieldCheck } from 'lucide-react';
 
-interface AuthScreenProps {
-  onLogin: (role: 'customer' | 'staff' | 'agent' | 'admin') => void;
-}
+import { useShipment } from '@/app/context/ShipmentContext';
+import { toast } from 'sonner';
 
-export function AuthScreen({ onLogin }: AuthScreenProps) {
+export function AuthScreen() {
+  const { signIn, signUp } = useShipment();
   const [isLoading, setIsLoading] = useState(false);
   const [role, setRole] = useState<'customer' | 'staff' | 'agent' | 'admin'>('customer');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin(role);
-    }, 800);
+    const { error } = await signIn(email, password);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Logged in successfully');
+    }
+    setIsLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await signUp(email, password, name, phone, role);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Account created successfully! You can now log in.');
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -46,15 +67,18 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
             </TabsList>
 
             <TabsContent value="login">
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email or Phone</Label>
+                  <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       id="email"
-                      placeholder="Enter email or phone"
+                      type="email"
+                      placeholder="Enter email"
                       className="pl-10"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -66,25 +90,12 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                     id="password"
                     type="password"
                     placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Portal Access</Label>
-                  <Select value={role} onValueChange={(v: any) => setRole(v)}>
-                    <SelectTrigger>
-                      <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
-                      <SelectValue placeholder="Select portal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="customer">Customer Portal</SelectItem>
-                      <SelectItem value="staff">Staff Portal</SelectItem>
-                      <SelectItem value="agent">Agent Portal</SelectItem>
-                      <SelectItem value="admin">Admin Portal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 <div className="flex justify-end">
                   <button
@@ -106,12 +117,14 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
             </TabsContent>
 
             <TabsContent value="signup">
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
                     placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     required
                   />
                 </div>
@@ -125,6 +138,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                       type="email"
                       placeholder="Enter email"
                       className="pl-10"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -139,6 +154,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                       type="tel"
                       placeholder="Enter phone number"
                       className="pl-10"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       required
                     />
                   </div>
@@ -150,8 +167,28 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                     id="signup-password"
                     type="password"
                     placeholder="Create password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={false}
                   />
+                </div>
+
+
+                <div className="space-y-2">
+                  <Label>Register As</Label>
+                  <Select value={role} onValueChange={(v: any) => setRole(v)}>
+                    <SelectTrigger>
+                      <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
+                      <SelectValue placeholder="Select portal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="staff">Staff Member</SelectItem>
+                      <SelectItem value="agent">Shipping Agent</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <Button
@@ -159,8 +196,9 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                   className="w-full bg-primary hover:bg-primary/90"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Creating account...' : 'Create Account'}
+                  {isLoading ? 'Processing...' : 'Create Account'}
                 </Button>
+
               </form>
             </TabsContent>
           </Tabs>

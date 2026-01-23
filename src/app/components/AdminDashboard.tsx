@@ -28,15 +28,15 @@ import {
   CheckCircle,
   Clock,
 } from 'lucide-react';
+import { NotificationCenter } from './NotificationCenter';
 
 interface AdminDashboardProps {
-  onNavigate: (screen: string) => void;
 }
 
 import { useShipment } from '@/app/context/ShipmentContext';
 
-export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
-  const { shipments } = useShipment();
+export function AdminDashboard({ }: AdminDashboardProps) {
+  const { shipments, userProfile, signOut } = useShipment();
   // Using context data instead of local static data
   const shipmentData = shipments;
 
@@ -92,11 +92,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       {/* Header */}
       <div className="bg-white shadow-sm py-4">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{userProfile?.name || 'Admin'} Dashboard</h1>
           <div className="flex gap-2">
-            <Button variant="ghost" className="hover:bg-muted" onClick={() => onNavigate('auth')}>
-              Logout
-            </Button>
+            <div className="flex items-center gap-2">
+              <NotificationCenter />
+              <Button variant="ghost" className="hover:bg-muted" onClick={() => signOut()}>
+                Logout
+              </Button>
+            </div>
             <Button variant="outline" className="flex items-center">
               <Download className="w-4 h-4 mr-2" />
               Export Report

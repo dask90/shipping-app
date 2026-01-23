@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -14,6 +15,11 @@ interface CreateShipmentProps {
 
 import { useShipment } from '@/app/context/ShipmentContext';
 import { toast } from 'sonner';
+
+const MapPicker = dynamic(() => import('./MapPicker'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center text-xs">Loading Map...</div>
+});
 
 export function CreateShipment({ onNavigate }: CreateShipmentProps) {
   const { createShipment } = useShipment();
@@ -225,21 +231,15 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
                 <div className="space-y-2">
                   <Label>Select Pickup Location</Label>
                   {/* Google Maps Placeholder */}
-                  <div className="w-full h-48 bg-muted rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary/50 transition-colors">
-                    <section className="absolute inset-0 w-full h-full opacity-60">
-                      <iframe
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.pickupAddress || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        allowFullScreen
-                      ></iframe>
-                    </section>
-                    <MapPin className="w-8 h-8 text-primary mb-2 z-10" />
-                    <span className="text-sm text-muted-foreground font-medium z-10">
-                      Tap to pin location on map
-                    </span>
+                  <div className="w-full h-64 bg-muted rounded-lg border-2 border-border relative overflow-hidden group shadow-inner">
+                    <MapPicker
+                      onLocationSelect={(_, __, address) => {
+                        if (address) {
+                          setFormData({ ...formData, pickupAddress: address });
+                          toast.success("Location pinned!");
+                        }
+                      }}
+                    />
                   </div>
 
                   <Label htmlFor="pickupAddress">Address Details</Label>
@@ -294,21 +294,16 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
               <div className="space-y-2">
                 <Label>Select Delivery Location</Label>
                 {/* Google Maps Placeholder */}
-                <div className="w-full h-48 bg-muted rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary/50 transition-colors">
-                  <section className="absolute inset-0 w-full h-full opacity-60">
-                    <iframe
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.destinationAddress || formData.destinationCity || 'Kumasi, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                    ></iframe>
-                  </section>
-                  <MapPin className="w-8 h-8 text-destructive mb-2 z-10" />
-                  <span className="text-sm text-muted-foreground font-medium z-10">
-                    Tap to pin location on map
-                  </span>
+                <div className="w-full h-64 bg-muted rounded-lg border-2 border-border relative overflow-hidden group shadow-inner">
+                  <MapPicker
+                    onLocationSelect={(_, __, address) => {
+                      if (address) {
+                        setFormData({ ...formData, destinationAddress: address });
+                        toast.success("Location pinned!");
+                      }
+                    }}
+                    initialPos={formData.destinationCity === 'Kumasi' ? [6.6666, -1.6163] : [5.6037, -0.1870]}
+                  />
                 </div>
 
                 <Label htmlFor="destinationAddress">Delivery Address</Label>

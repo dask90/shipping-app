@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
 import { useShipment } from '@/app/context/ShipmentContext';
-import { CheckCircle, XCircle, User, Package, MapPin, Truck, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, User, Package, MapPin, Truck, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Input } from '@/app/components/ui/input';
@@ -22,13 +22,14 @@ import {
     AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 
+import { NotificationCenter } from './NotificationCenter';
+
 interface StaffDashboardProps {
-    onNavigate: (screen: string) => void;
 }
 
-export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
-    const { shipments, approveShipment, assignAgent } = useShipment();
-    const [selectedAgent, setSelectedAgent] = useState('');
+export function StaffDashboard({ }: StaffDashboardProps) {
+    const { shipments, approveShipment, assignAgent, userProfile, signOut, availableAgents, issues, resolveIssue } = useShipment();
+    const [selectedAgentId, setSelectedAgentId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [cityFilter, setCityFilter] = useState('all');
@@ -68,12 +69,13 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
     };
 
     const handleAssign = (id: string) => {
-        if (!selectedAgent) return;
-        // Mock agent ID mapping
-        const agentId = selectedAgent === 'Kofi Boateng' ? 'AGT001' : 'AGT002';
-        assignAgent(id, selectedAgent, agentId);
-        toast.success(`Agent assigned to ${id}`);
-        setSelectedAgent('');
+        if (!selectedAgentId) return;
+        const agent = availableAgents.find(a => a.id === selectedAgentId);
+        if (!agent) return;
+
+        assignAgent(id, agent.name, agent.id);
+        toast.success(`Agent ${agent.name} assigned to ${id}`);
+        setSelectedAgentId('');
     };
 
     return (
@@ -81,16 +83,19 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
             <div className="bg-primary text-white p-6 pb-20">
                 <div className="max-w-4xl mx-auto flex justify-between items-start">
                     <div>
-                        <h1 className="text-2xl mb-1">Staff Dashboard</h1>
+                        <h1 className="text-2xl mb-1">{userProfile?.name || 'Staff'} Dashboard</h1>
                         <p className="text-blue-100">Manage approvals and assignments</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        className="text-white hover:bg-white/20"
-                        onClick={() => onNavigate('auth')}
-                    >
-                        Logout
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <NotificationCenter />
+                        <Button
+                            variant="ghost"
+                            className="text-white hover:bg-white/20"
+                            onClick={() => signOut()}
+                        >
+                            Logout
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -186,11 +191,11 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
 
                 <Card className="p-6 shadow-lg min-h-[500px]">
                     <Tabs defaultValue="operations">
-                        <TabsList className="grid w-full grid-cols-3 mb-6">
-                            <TabsTrigger value="operations">
+                        <TabsList className="flex w-full overflow-x-auto overflow-y-hidden mb-6 justify-start scrollbar-hide bg-muted/50 p-1">
+                            <TabsTrigger value="operations" className="flex-1 min-w-max whitespace-nowrap px-4 py-2">
                                 Operations Log
                             </TabsTrigger>
-                            <TabsTrigger value="approvals" className="relative">
+                            <TabsTrigger value="approvals" className="relative flex-1 min-w-max whitespace-nowrap px-4 py-2">
                                 Pending Approvals
                                 {pendingShipments.length > 0 && (
                                     <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
@@ -198,11 +203,14 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
                                     </Badge>
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="assignments">
-                                Agent Assignments
-                                {approvedShipments.length > 0 && (
-                                    <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
-                                        {approvedShipments.length}
+                            <TabsTrigger value="assignments" className="flex-1 min-w-max whitespace-nowrap px-4 py-2">
+                                Assignments
+                            </TabsTrigger>
+                            <TabsTrigger value="issues" className="relative flex-1 min-w-max whitespace-nowrap px-4 py-2">
+                                Reported Issues
+                                {issues.filter(i => i.status === 'open').length > 0 && (
+                                    <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
+                                        {issues.filter(i => i.status === 'open').length}
                                     </Badge>
                                 )}
                             </TabsTrigger>
@@ -339,21 +347,69 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
 
                                         <div className="flex gap-2 items-end">
                                             <div className="flex-1">
-                                                <Select onValueChange={setSelectedAgent}>
+                                                <Select onValueChange={setSelectedAgentId} value={selectedAgentId}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select Delivery Agent" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="Kofi Boateng">Kofi Boateng (Available)</SelectItem>
-                                                        <SelectItem value="Yaw Addo">Yaw Addo (Busy)</SelectItem>
-                                                        <SelectItem value="Kwabena Yeboah">Kwabena Yeboah (Available)</SelectItem>
+                                                        {availableAgents.map(agent => (
+                                                            <SelectItem key={agent.id} value={agent.id}>
+                                                                {agent.name} {agent.phone ? `(${agent.phone})` : ''}
+                                                            </SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <Button onClick={() => handleAssign(shipment.id)} disabled={!selectedAgent}>
+                                            <Button onClick={() => handleAssign(shipment.id)} disabled={!selectedAgentId}>
                                                 <User className="w-4 h-4 mr-2" />
                                                 Assign
                                             </Button>
+                                        </div>
+                                    </Card>
+                                ))
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="issues" className="space-y-4">
+                            {issues.length === 0 ? (
+                                <div className="text-center py-10 text-muted-foreground">
+                                    No issues reported yet.
+                                </div>
+                            ) : (
+                                issues.map(issue => (
+                                    <Card key={issue.id} className={`p-4 border shadow-sm ${issue.status === 'open' ? 'border-l-4 border-l-red-500' : 'opacity-60'}`}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant={issue.status === 'open' ? 'destructive' : 'secondary'} className="uppercase text-[10px]">
+                                                    {issue.status}
+                                                </Badge>
+                                                <span className="font-bold">{issue.shipments?.id}</span>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground">
+                                                {new Date(issue.created_at).toLocaleString()}
+                                            </span>
+                                        </div>
+
+                                        <div className="mb-3">
+                                            <div className="text-sm font-semibold flex items-center mb-1">
+                                                <AlertTriangle className="w-3 h-3 mr-1 text-amber-500" />
+                                                {issue.issue_type}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground bg-muted/30 p-2 rounded italic">
+                                                "{issue.description}"
+                                            </p>
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-2 border-t">
+                                            <div className="text-xs text-muted-foreground">
+                                                Reported by: {issue.shipments?.customerName}
+                                            </div>
+                                            {issue.status === 'open' && (
+                                                <Button size="sm" variant="outline" className="h-8 text-xs text-green-600 border-green-200 hover:bg-green-50" onClick={() => resolveIssue(issue.id)}>
+                                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                                    Mark Resolved
+                                                </Button>
+                                            )}
                                         </div>
                                     </Card>
                                 ))

@@ -11,35 +11,36 @@ import { AgentDashboard } from '@/app/components/AgentDashboard';
 import { ShipmentProvider, useShipment } from '@/app/context/ShipmentContext';
 import { Toaster } from 'sonner';
 
-type Screen = 'auth' | 'dashboard' | 'create-shipment' | 'tracking' | 'notifications' | 'profile' | 'admin' | 'staff' | 'agent';
+type Screen = 'dashboard' | 'create-shipment' | 'tracking' | 'notifications' | 'profile' | 'admin' | 'staff' | 'agent' | 'auth';
 
 function AppContent() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('auth');
-  const { setUserRole, setTrackingId } = useShipment();
-
-  const handleLogin = (role: 'customer' | 'staff' | 'agent' | 'admin') => {
-    setUserRole(role);
-    switch (role) {
-      case 'staff': setCurrentScreen('staff'); break;
-      case 'agent': setCurrentScreen('agent'); break;
-      case 'admin': setCurrentScreen('admin'); break;
-      default: setCurrentScreen('dashboard');
-    }
-  };
+  const { currentUser, userRole, setTrackingId } = useShipment();
+  const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
 
   const handleNavigate = (screen: string) => {
     if (screen === 'auth') {
-      setUserRole('customer');
       setTrackingId(null);
     }
     setCurrentScreen(screen as Screen);
   };
 
-  if (currentScreen === 'auth') {
-    return <AuthScreen onLogin={handleLogin} />;
+  // If not logged in, always show Auth
+  if (!currentUser) {
+    return <AuthScreen />;
   }
 
+
   const renderScreen = () => {
+    // If we're on the default dashboard, redirect based on role
+    if (currentScreen === 'dashboard') {
+      switch (userRole) {
+        case 'staff': return <StaffDashboard onNavigate={handleNavigate} />;
+        case 'agent': return <AgentDashboard onNavigate={handleNavigate} />;
+        case 'admin': return <AdminDashboard onNavigate={handleNavigate} />;
+        default: return <CustomerDashboard onNavigate={handleNavigate} />;
+      }
+    }
+
     switch (currentScreen) {
       case 'staff': return <StaffDashboard onNavigate={handleNavigate} />;
       case 'agent': return <AgentDashboard onNavigate={handleNavigate} />;

@@ -12,17 +12,16 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import { useShipment } from '@/app/context/ShipmentContext';
+import { NotificationCenter } from './NotificationCenter';
+import { Shipment } from '@/app/context/ShipmentContext';
 
 interface CustomerDashboardProps {
   onNavigate: (screen: string) => void;
 }
 
-import { useShipment } from '@/app/context/ShipmentContext';
-
-export function CustomerDashboard({
-  onNavigate,
-}: CustomerDashboardProps) {
-  const { shipments, setTrackingId } = useShipment();
+export function CustomerDashboard({ onNavigate }: CustomerDashboardProps) {
+  const { shipments, setTrackingId, userProfile, signOut } = useShipment();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = (e: React.FormEvent) => {
@@ -66,14 +65,14 @@ export function CustomerDashboard({
 
   const stats = {
     active: myShipments.filter(
-      (s) =>
+      (s: Shipment) =>
         s.status === "in_transit" || s.status === "pending_approval" || s.status === "approved" || s.status === "assigned",
     ).length,
     delivered: myShipments.filter(
-      (s) => s.status === "delivered",
+      (s: Shipment) => s.status === "delivered",
     ).length,
     inTransit: myShipments.filter(
-      (s) => s.status === "in_transit",
+      (s: Shipment) => s.status === "in_transit",
     ).length,
   };
 
@@ -83,16 +82,19 @@ export function CustomerDashboard({
       <div className="bg-primary text-white p-6 pb-24">
         <div className="max-w-4xl mx-auto flex justify-between items-start">
           <div>
-            <h1 className="text-2xl mb-1">Welcome back, John</h1>
+            <h1 className="text-2xl mb-1">Welcome back, {userProfile?.name?.split(' ')[0] || 'User'}</h1>
             <p className="text-blue-100">Manage your shipments</p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/20"
-            onClick={() => onNavigate("auth")}
-          >
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
+            <Button
+              variant="ghost"
+              className="text-white hover:bg-white/20"
+              onClick={() => signOut()}
+            >
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -173,7 +175,7 @@ export function CustomerDashboard({
         <div className="mb-6">
           <h2 className="mb-4">Recent Shipments</h2>
           <div className="space-y-3">
-            {myShipments.map((shipment) => (
+            {myShipments.map((shipment: Shipment) => (
               <Card
                 key={shipment.id}
                 className="p-4 shadow-md hover:shadow-lg transition-shadow cursor-pointer"

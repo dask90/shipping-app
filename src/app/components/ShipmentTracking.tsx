@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
-import { ArrowLeft, Package, MapPin, Phone, User, CheckCircle, Clock, TruckIcon, Search } from 'lucide-react';
+import { Textarea } from '@/app/components/ui/textarea';
+import {
+  ArrowLeft, Package, MapPin, Phone, User, CheckCircle,
+  Clock, TruckIcon, Search, Share2, AlertTriangle,
+  MessageSquare, X, Send, PhoneOff, Mic, Video
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 import { useShipment, ShipmentStatus } from '@/app/context/ShipmentContext';
 
@@ -12,17 +18,96 @@ interface ShipmentTrackingProps {
 }
 
 export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
-  const { shipments, trackingId, setTrackingId } = useShipment();
+  const { shipments, trackingId, setTrackingId, reportIssue, sendMessage, fetchMessages, currentUser } = useShipment();
   const [searchId, setSearchId] = useState('');
+
+  // UI States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [issueType, setIssueType] = useState('Damaged Package');
+  const [issueDescription, setIssueDescription] = useState('');
+
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
+
+  const [isCalling, setIsCalling] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Find the specific shipment
   const shipment = shipments.find(s => s.id === (trackingId || searchId.toUpperCase()));
+
+  useEffect(() => {
+    if (showChat && shipment) {
+      const loadMessages = async () => {
+        const { data } = await fetchMessages(shipment.id);
+        if (data) setMessages(data);
+      };
+      loadMessages();
+
+      // Set up simple interval to check for new messages in this demo
+      const interval = setInterval(loadMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [showChat, shipment?.id]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isCalling) {
+      timer = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isCalling]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchId) {
       setTrackingId(searchId.toUpperCase());
     }
+  };
+
+  const handleShare = () => {
+    if (shipment) {
+      const url = `${window.location.origin}?track=${shipment.id}`;
+      navigator.clipboard.writeText(url);
+      toast.success('Tracking link copied to clipboard!');
+    }
+  };
+
+  const handleReportIssue = async () => {
+    if (shipment) {
+      await reportIssue(shipment.id, issueType, issueDescription);
+      setShowReportModal(false);
+      setIssueDescription('');
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (shipment && chatMessage.trim() && shipment.agentId) {
+      await sendMessage(shipment.id, shipment.agentId, chatMessage);
+      setChatMessage('');
+      // Optimistic update
+      setMessages(prev => [...prev, {
+        content: chatMessage,
+        sender_id: currentUser?.id,
+        created_at: new Date().toISOString()
+      }]);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getStatusIcon = (status: ShipmentStatus) => {
@@ -89,7 +174,7 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 relative overflow-hidden">
       {/* Header */}
       <div className="bg-primary text-white p-6 pb-20">
         <div className="max-w-4xl mx-auto">
@@ -100,8 +185,15 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Dashboard
           </button>
-          <h1 className="text-2xl mb-2">Track Shipment</h1>
-          <p className="text-blue-100">Real-time tracking information</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl mb-2">Track Shipment</h1>
+              <p className="text-blue-100">Real-time tracking information</p>
+            </div>
+            <Button variant="secondary" size="icon" onClick={handleShare} className="rounded-full">
+              <Share2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -112,7 +204,9 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
           <div className="w-full h-64 bg-muted relative">
             <section className="absolute inset-0 w-full h-full">
               <iframe
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(shipment?.toCity || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+                src={shipment.status === 'in_transit' && shipment.currentLat && shipment.currentLng
+                  ? `https://maps.google.com/maps?q=${shipment.currentLat},${shipment.currentLng}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+                  : `https://maps.google.com/maps?q=${encodeURIComponent(shipment?.toCity || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
@@ -170,7 +264,7 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
                 <div className="text-sm text-muted-foreground">To</div>
                 <div>{shipment?.toCity}</div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Recipient: Abena Osei {/* Mock recipient for now */}
+                  Recipient: {shipment?.recipientName || 'Arrive Recipient'}
                 </div>
               </div>
             </div>
@@ -178,27 +272,28 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
         </Card>
 
         {/* Proof of Delivery (Shown if Delivered) */}
-        {/* For demo, we show it if status is not pending */}
-        <Card className="p-6 shadow-md mb-4">
-          <h3 className="mb-4 flex items-center">
-            <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
-            Proof of Delivery
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="border border-border rounded-lg p-2 text-center">
-              <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs italic">
-                [Signature Image]
+        {shipment.status === 'delivered' && (
+          <Card className="p-6 shadow-md mb-4 animate-in fade-in slide-in-from-bottom-2">
+            <h3 className="mb-4 flex items-center">
+              <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+              Proof of Delivery
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border border-border rounded-lg p-2 text-center">
+                <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs italic">
+                  [Signature Image]
+                </div>
+                <p className="text-xs text-muted-foreground">Signed by Recipient</p>
               </div>
-              <p className="text-xs text-muted-foreground">Signed by Recipient</p>
-            </div>
-            <div className="border border-border rounded-lg p-2 text-center">
-              <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs">
-                <Package className="w-8 h-8 opacity-20" />
+              <div className="border border-border rounded-lg p-2 text-center">
+                <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs">
+                  <Package className="w-8 h-8 opacity-20" />
+                </div>
+                <p className="text-xs text-muted-foreground">Package Photo</p>
               </div>
-              <p className="text-xs text-muted-foreground">Package Photo</p>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Timeline */}
         <Card className="p-6 shadow-md mb-4">
@@ -237,35 +332,186 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
 
         {/* Delivery Agent Info */}
         {showAgentDetails && (
-          <Card className="p-6 shadow-md mb-4">
+          <Card className="p-6 shadow-md mb-4 bg-accent/5 border-accent/20">
             <h3 className="mb-4">Delivery Agent</h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mr-3">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mr-3 relative">
                   <User className="w-6 h-6 text-primary" />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-background" />
                 </div>
                 <div>
-                  <div>{shipment?.agentName}</div>
+                  <div className="font-semibold">{shipment?.agentName}</div>
                   <div className="text-sm text-muted-foreground">Agent ID: {shipment?.agentId}</div>
                   <div className="text-xs text-muted-foreground">{shipment?.agentPhone}</div>
                 </div>
               </div>
-              <Button size="sm" className="bg-accent hover:bg-accent/90">
-                <Phone className="w-4 h-4 mr-2" />
-                Call
-              </Button>
+              <div className="flex gap-2">
+                <Button size="icon" variant="outline" onClick={() => setShowChat(true)} className="rounded-full">
+                  <MessageSquare className="w-4 h-4" />
+                </Button>
+                <Button size="icon" onClick={() => setIsCalling(true)} className="rounded-full bg-accent hover:bg-accent/90">
+                  <Phone className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </Card>
         )}
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1 rounded-xl" onClick={handleShare}>
+            <Share2 className="w-4 h-4 mr-2" />
             Share Tracking
           </Button>
-          <Button variant="outline" className="flex-1">
+          <Button
+            variant="outline"
+            className="flex-1 rounded-xl border-red-100 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => setShowReportModal(true)}
+          >
+            <AlertTriangle className="w-4 h-4 mr-2" />
             Report Issue
           </Button>
+        </div>
+      </div>
+
+      {/* Report Issue Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-md p-6 animate-in zoom-in-95">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
+                Report an Issue
+              </h2>
+              <Button variant="ghost" size="icon" onClick={() => setShowReportModal(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Issue Type</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={issueType}
+                  onChange={(e) => setIssueType(e.target.value)}
+                >
+                  <option>Damaged Package</option>
+                  <option>Missing Items</option>
+                  <option>Delivery Delay</option>
+                  <option>Rude Agent</option>
+                  <option>Incorrect Location</option>
+                  <option>Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Description</label>
+                <Textarea
+                  placeholder="Please provide more details about the issue..."
+                  className="h-32"
+                  value={issueDescription}
+                  onChange={(e) => setIssueDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setShowReportModal(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1 bg-red-600 hover:bg-red-700" onClick={handleReportIssue} disabled={!issueDescription.trim()}>
+                  Submit Report
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Call Simulation Overlay */}
+      {isCalling && (
+        <div className="fixed inset-0 z-[60] bg-primary/95 text-white flex flex-col items-center justify-between p-12">
+          <div className="text-center mt-20">
+            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl font-bold border-4 border-accent animate-pulse">
+              {shipment?.agentName?.charAt(0)}
+            </div>
+            <h2 className="text-3xl font-bold mb-2">{shipment?.agentName}</h2>
+            <p className="text-blue-200">Arrive Agent • {shipment?.agentPhone}</p>
+            <div className="mt-4 text-xl font-mono text-accent">{formatDuration(callDuration)}</div>
+          </div>
+
+          <div className="flex gap-8 mb-20">
+            <Button size="icon" variant="ghost" className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20">
+              <Mic className="w-6 h-6" />
+            </Button>
+            <Button size="icon" className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 shadow-xl shadow-red-900/50" onClick={() => { setIsCalling(false); setCallDuration(0); }}>
+              <PhoneOff className="w-8 h-8" />
+            </Button>
+            <Button size="icon" variant="ghost" className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20">
+              <Video className="w-6 h-6" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Drawer */}
+      <div className={`fixed inset-x-0 bottom-0 z-[55] bg-background border-t shadow-2xl transition-transform duration-300 transform ${showChat ? 'translate-y-0' : 'translate-y-full'} h-4/5 flex flex-col`}>
+        <div className="p-4 border-b flex items-center justify-between bg-primary text-white">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mr-2">
+              <User className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-semibold leading-tight">{shipment?.agentName}</div>
+              <div className="text-[10px] text-blue-100">Usually replies in 2 mins</div>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => setShowChat(false)} className="text-white hover:bg-white/10">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/30">
+          <div className="text-center">
+            <Badge variant="outline" className="bg-white border-0 text-muted-foreground text-[10px]">TODAY</Badge>
+          </div>
+
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full opacity-40">
+              <MessageSquare className="w-12 h-12 mb-2" />
+              <p className="text-sm">Start a conversation with your agent</p>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender_id === currentUser?.id
+                  ? 'bg-primary text-white rounded-br-none shadow-md shadow-primary/20'
+                  : 'bg-white text-foreground rounded-bl-none shadow-sm'
+                }`}>
+                {msg.content}
+                <div className={`text-[9px] mt-1 ${msg.sender_id === currentUser?.id ? 'text-blue-100' : 'text-muted-foreground'}`}>
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 border-t bg-background">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Type a message..."
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              className="rounded-full bg-muted/50 border-0 focus-visible:ring-primary"
+            />
+            <Button size="icon" className="rounded-full shrink-0" onClick={handleSendMessage} disabled={!chatMessage.trim()}>
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
