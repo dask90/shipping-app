@@ -59,12 +59,14 @@ interface ShipmentContextType {
     userRole: 'customer' | 'staff' | 'agent' | 'admin';
     currentUser: any;
     userProfile: any;
+    isLoadingProfile: boolean;
     setUserRole: (role: 'customer' | 'staff' | 'agent' | 'admin') => void;
     trackingId: string | null;
     setTrackingId: (id: string | null) => void;
     createShipment: (shipment: Omit<Shipment, 'id' | 'status' | 'date' | 'history'>) => Promise<void>;
     approveShipment: (id: string) => Promise<void>;
-    assignAgent: (id: string, agentName: string, agentId: string) => Promise<void>;
+    rejectShipment: (id: string) => Promise<void>;
+    assignAgent: (id: string, agentName: string, agentId: string, agentPhone: string) => Promise<void>;
     confirmPickup: (id: string) => Promise<void>;
     markInTransit: (id: string) => Promise<void>;
     markDelivered: (id: string) => Promise<void>;
@@ -105,9 +107,11 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
     const [unreadCount, setUnreadCount] = useState(0);
     const [availableAgents, setAvailableAgents] = useState<any[]>([]);
     const [issues, setIssues] = useState<any[]>([]);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
     // Fetch profile
     const fetchProfile = async (userId: string) => {
+        setIsLoadingProfile(true);
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -116,6 +120,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error('[Supabase Profile Error]', error);
+            setIsLoadingProfile(false);
             return;
         }
 
@@ -123,6 +128,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             setUserProfile(data);
             setUserRole(data.role as any);
         }
+        setIsLoadingProfile(false);
     };
 
     const fetchAgents = async () => {
@@ -134,7 +140,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         if (data) {
             setAvailableAgents(data);
         } else if (error) {
-            console.error('[Supabase Fetch Agents Error]', error);
+            console.error(`[Supabase Fetch Agents Error] ${error.message}`, error);
         }
     };
 
@@ -177,26 +183,49 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         if (data) {
             setIssues(data);
         } else if (error) {
-            console.error('[Supabase Fetch Issues Error]', error);
+            console.error(`[Supabase Fetch Issues Error] ${error.message}`, error);
         }
     };
 
-    // Fetch from Supabase
+    // 1. Auth & Profile Effect (Runs once on mount)
     useEffect(() => {
-        // Handle Auth State Changes
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setCurrentUser(session?.user ?? null);
-            if (session?.user) {
-                await fetchProfile(session.user.id);
-                await fetchNotifications(session.user.id);
+        let isMounted = true;
+
+        const handleSession = async (session: any) => {
+            if (!isMounted) return;
+
+            const user = session?.user ?? null;
+            setCurrentUser(user);
+
+            if (user) {
+                await fetchProfile(user.id);
             } else {
                 setUserProfile(null);
                 setUserRole('customer');
                 setNotifications([]);
                 setUnreadCount(0);
+                setIsLoadingProfile(false);
             }
+        };
+
+        // Handle Auth State Changes
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            handleSession(session);
         });
 
+        // Initial session check
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            handleSession(session);
+        });
+
+        return () => {
+            isMounted = false;
+            authSubscription.unsubscribe();
+        };
+    }, []);
+
+    // 2. Global Data Effect (Runs once on mount)
+    useEffect(() => {
         fetchShipments();
         fetchAgents();
         fetchIssues();
@@ -207,7 +236,6 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'shipments' }, (payload) => {
                 if (payload.eventType === 'UPDATE') {
                     setShipments(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
-                    // Show a toast when status changes
                     if (payload.old.status !== payload.new.status) {
                         toast.info(`Shipment ${payload.new.id} status updated to ${payload.new.status.replace('_', ' ')}`);
                     }
@@ -217,30 +245,52 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             })
             .subscribe();
 
-        // Set up real-time subscription for notifications
-        let notificationSub: any;
-        if (currentUser) {
-            notificationSub = supabase
-                .channel('notifications_changes')
-                .on('postgres_changes', {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${currentUser.id}`
-                }, (payload) => {
-                    setNotifications(prev => [payload.new as Notification, ...prev]);
-                    setUnreadCount(prev => prev + 1);
-                    toast.success(payload.new.title);
-                })
-                .subscribe();
-        }
+        return () => {
+            supabase.removeChannel(shipmentSub);
+        };
+    }, []);
+
+    // 3. User-Specific Data Effect (Runs when user changes)
+    useEffect(() => {
+        if (!currentUser) return;
+
+        fetchNotifications(currentUser.id);
+
+        const notificationSub = supabase
+            .channel('notifications_changes')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${currentUser.id}`
+            }, (payload) => {
+                setNotifications(prev => [payload.new as Notification, ...prev]);
+                setUnreadCount(prev => prev + 1);
+                toast.success(payload.new.title);
+            })
+            .subscribe();
 
         return () => {
-            authSubscription.unsubscribe();
-            supabase.removeChannel(shipmentSub);
-            if (notificationSub) supabase.removeChannel(notificationSub);
+            supabase.removeChannel(notificationSub);
         };
     }, [currentUser?.id]);
+
+    const addNotification = async (userId: string, title: string, message: string, type: 'info' | 'success' | 'warning', shipmentId?: string) => {
+        const { error } = await supabase
+            .from('notifications')
+            .insert([{
+                user_id: userId,
+                title,
+                message,
+                type,
+                shipment_id: shipmentId,
+                read: false
+            }]);
+
+        if (error) {
+            console.error('[Supabase Add Notification Error]', error);
+        }
+    };
 
     const createShipment = async (data: Omit<Shipment, 'id' | 'status' | 'date' | 'history'>) => {
         const date = new Date().toISOString().split('T')[0];
@@ -307,9 +357,65 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 history: updatedHistory
             } : s
         ));
+
+        if (shipment.customer_id) {
+            await addNotification(
+                shipment.customer_id,
+                'Shipment Approved',
+                `Your shipment ${id} has been approved by staff.`,
+                'success',
+                id
+            );
+        }
     };
 
-    const assignAgent = async (id: string, agentName: string, agentId: string) => {
+    const rejectShipment = async (id: string) => {
+        const date = new Date().toISOString().split('T')[0];
+        const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+        const shipment = shipments.find(s => s.id === id);
+        if (!shipment) return;
+
+        const updatedHistory = [...shipment.history, {
+            status: 'cancelled' as ShipmentStatus,
+            date: `${date} ${time}`,
+            location: shipment.fromCity,
+            description: 'Rejected by staff'
+        }];
+
+        const { error } = await supabase
+            .from('shipments')
+            .update({
+                status: 'cancelled',
+                history: updatedHistory
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error(`[Supabase Rejection Error] ${error.message}`, error);
+            return;
+        }
+
+        setShipments(prev => prev.map(s =>
+            s.id === id ? {
+                ...s,
+                status: 'cancelled',
+                history: updatedHistory
+            } : s
+        ));
+
+        if (shipment.customer_id) {
+            await addNotification(
+                shipment.customer_id,
+                'Shipment Rejected',
+                `Your shipment ${id} has been rejected.`,
+                'warning',
+                id
+            );
+        }
+    };
+
+    const assignAgent = async (id: string, agentName: string, agentId: string, agentPhone: string) => {
         const date = new Date().toISOString().split('T')[0];
         const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -329,7 +435,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 status: 'assigned',
                 agentName,
                 agentId,
-                agentPhone: '+233 20 555 9999',
+                agentPhone,
                 history: updatedHistory
             })
             .eq('id', id);
@@ -345,10 +451,20 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 status: 'assigned',
                 agentName,
                 agentId,
-                agentPhone: '+233 20 555 9999',
+                agentPhone,
                 history: updatedHistory
             } : s
         ));
+
+        if (shipment.customer_id) {
+            await addNotification(
+                shipment.customer_id,
+                'Agent Assigned',
+                `Agent ${agentName} has been assigned to your shipment ${id}.`,
+                'info',
+                id
+            );
+        }
     };
 
     const acceptRequest = async (id: string) => {
@@ -461,6 +577,16 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 currentLng: -0.1870
             } : s
         ));
+
+        if (shipment.customer_id) {
+            await addNotification(
+                shipment.customer_id,
+                'Journey Started',
+                `Agent ${shipment.agentName || 'Agent'} has started the journey for shipment ${id}.`,
+                'info',
+                id
+            );
+        }
     };
 
     const updateCurrentLocation = async (id: string, lat: number, lng: number) => {
@@ -623,6 +749,10 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                         role,
                     }
                 ]);
+
+            // Sign out immediately so they have to login manually
+            await supabase.auth.signOut();
+
             return { error: profileError };
         }
 
@@ -722,11 +852,13 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             userRole,
             currentUser,
             userProfile,
+            isLoadingProfile,
             setUserRole,
             trackingId,
             setTrackingId,
             createShipment,
             approveShipment,
+            rejectShipment,
             assignAgent,
             confirmPickup,
             markInTransit,

@@ -10,8 +10,14 @@ import {
   MessageSquare, X, Send, PhoneOff, Mic, Video
 } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
 
 import { useShipment, ShipmentStatus } from '@/app/context/ShipmentContext';
+
+const LiveTrackingMap = dynamic(() => import('./LiveTrackingMap'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center text-xs">Loading Live Map...</div>
+});
 
 interface ShipmentTrackingProps {
   onNavigate: (screen: string) => void;
@@ -201,23 +207,19 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
       <div className="max-w-4xl mx-auto px-4 -mt-12">
         {/* Map View */}
         <Card className="shadow-lg mb-6 overflow-hidden border-0">
-          <div className="w-full h-64 bg-muted relative">
-            <section className="absolute inset-0 w-full h-full">
-              <iframe
-                src={shipment.status === 'in_transit' && shipment.currentLat && shipment.currentLng
-                  ? `https://maps.google.com/maps?q=${shipment.currentLat},${shipment.currentLng}&t=&z=15&ie=UTF8&iwloc=&output=embed`
-                  : `https://maps.google.com/maps?q=${encodeURIComponent(shipment?.toCity || 'Accra, Ghana')}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-              ></iframe>
-            </section>
+          <div className="w-full h-80 bg-muted relative">
+            <LiveTrackingMap
+              agentPos={shipment.currentLat && shipment.currentLng ? [shipment.currentLat, shipment.currentLng] : undefined}
+              destinationPos={shipment.toCity.includes('Kumasi') ? [6.6666, -1.6163] : [5.6037, -0.1870]}
+              agentName={shipment.agentName}
+            />
 
-            <div className="absolute bottom-4 right-4 bg-background/90 p-2 rounded-lg backdrop-blur-sm text-xs shadow-sm">
-              <div className="font-semibold">Live Location</div>
-              <div className="text-muted-foreground">Updated 2m ago</div>
+            <div className="absolute bottom-4 right-4 z-[400] bg-background/90 p-2 rounded-lg backdrop-blur-sm text-xs shadow-sm border border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                <div className="font-semibold">Live Tracking Active</div>
+              </div>
+              <div className="text-muted-foreground">Updating in real-time</div>
             </div>
           </div>
 
@@ -487,8 +489,8 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender_id === currentUser?.id
-                  ? 'bg-primary text-white rounded-br-none shadow-md shadow-primary/20'
-                  : 'bg-white text-foreground rounded-bl-none shadow-sm'
+                ? 'bg-primary text-white rounded-br-none shadow-md shadow-primary/20'
+                : 'bg-white text-foreground rounded-bl-none shadow-sm'
                 }`}>
                 {msg.content}
                 <div className={`text-[9px] mt-1 ${msg.sender_id === currentUser?.id ? 'text-blue-100' : 'text-muted-foreground'}`}>

@@ -1,91 +1,36 @@
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { ArrowLeft, Package, TruckIcon, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertCircle, Bell } from 'lucide-react';
 
 interface NotificationsScreenProps {
   onNavigate: (screen: string) => void;
 }
 
-const notifications = [
-  {
-    id: 1,
-    type: 'delivery',
-    title: 'Package Delivered',
-    message: 'Your shipment SHP001235 has been delivered successfully',
-    timestamp: '2 hours ago',
-    read: false,
-    icon: CheckCircle,
-    color: 'green',
-  },
-  {
-    id: 2,
-    type: 'transit',
-    title: 'In Transit Update',
-    message: 'SHP001234 is now in transit to Kumasi Hub',
-    timestamp: '5 hours ago',
-    read: false,
-    icon: TruckIcon,
-    color: 'blue',
-  },
-  {
-    id: 3,
-    type: 'pickup',
-    title: 'Pickup Scheduled',
-    message: 'Your package SHP001234 will be picked up today between 2 PM - 5 PM',
-    timestamp: '1 day ago',
-    read: true,
-    icon: Package,
-    color: 'amber',
-  },
-  {
-    id: 4,
-    type: 'alert',
-    title: 'Delivery Delayed',
-    message: 'SHP001233 delivery delayed due to weather conditions. New ETA: Jan 21',
-    timestamp: '2 days ago',
-    read: true,
-    icon: AlertCircle,
-    color: 'red',
-  },
-  {
-    id: 5,
-    type: 'delivery',
-    title: 'Out for Delivery',
-    message: 'SHP001232 is out for delivery. Expected by 6 PM today',
-    timestamp: '3 days ago',
-    read: true,
-    icon: TruckIcon,
-    color: 'blue',
-  },
-  {
-    id: 6,
-    type: 'pickup',
-    title: 'Package Picked Up',
-    message: 'Your shipment SHP001231 has been collected from Accra Office',
-    timestamp: '4 days ago',
-    read: true,
-    icon: Package,
-    color: 'amber',
-  },
-];
+import { useShipment } from '@/app/context/ShipmentContext';
 
 export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
-  const getIconColor = (color: string) => {
-    switch (color) {
-      case 'green':
+  const { notifications, unreadCount, markAsRead } = useShipment();
+
+  const getIconColor = (type: string) => {
+    switch (type) {
+      case 'success':
         return 'bg-green-100 text-green-600';
-      case 'blue':
+      case 'info':
         return 'bg-blue-100 text-blue-600';
-      case 'amber':
+      case 'warning':
         return 'bg-amber-100 text-amber-600';
-      case 'red':
-        return 'bg-red-100 text-red-600';
       default:
         return 'bg-muted text-muted-foreground';
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'success': return CheckCircle;
+      case 'warning': return AlertCircle;
+      default: return Bell;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -118,16 +63,19 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
         {notifications.length > 0 ? (
           <div className="space-y-3">
             {notifications.map((notification) => {
-              const Icon = notification.icon;
+              const Icon = getIcon(notification.type);
               return (
                 <Card
                   key={notification.id}
                   className={`p-4 shadow-md cursor-pointer transition-all ${!notification.read ? 'border-l-4 border-l-primary bg-blue-50/30' : ''
                     }`}
-                  onClick={() => onNavigate('tracking')}
+                  onClick={() => {
+                    markAsRead(notification.id);
+                    if (notification.shipment_id) onNavigate('tracking');
+                  }}
                 >
                   <div className="flex items-start">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${getIconColor(notification.color)}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${getIconColor(notification.type)}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -143,7 +91,7 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
                         {notification.message}
                       </p>
                       <div className="text-xs text-muted-foreground">
-                        {notification.timestamp}
+                        {new Date(notification.created_at).toLocaleString()}
                       </div>
                     </div>
                   </div>

@@ -21,7 +21,7 @@ interface CustomerDashboardProps {
 }
 
 export function CustomerDashboard({ onNavigate }: CustomerDashboardProps) {
-  const { shipments, setTrackingId, userProfile, signOut } = useShipment();
+  const { shipments, setTrackingId, userProfile, signOut, currentUser } = useShipment();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = (e: React.FormEvent) => {
@@ -32,8 +32,8 @@ export function CustomerDashboard({ onNavigate }: CustomerDashboardProps) {
     }
   };
 
-  // Filter only for the "logged in" customer (Kwame Mensah - simulated)
-  const myShipments = shipments; // showing all for demo, typically filtered by user ID
+  // Filter only for the logged in customer
+  const myShipments = shipments.filter(s => s.customer_id === currentUser?.id);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -215,41 +215,6 @@ export function CustomerDashboard({ onNavigate }: CustomerDashboardProps) {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border">
-        <div className="max-w-4xl mx-auto px-4 py-3">
-          <div className="grid grid-cols-4 gap-2">
-            <button className="flex flex-col items-center py-2 text-primary">
-              <Package className="w-5 h-5 mb-1" />
-              <span className="text-xs">Home</span>
-            </button>
-            <button
-              className="flex flex-col items-center py-2 text-muted-foreground"
-              onClick={() => onNavigate("notifications")}
-            >
-              <Clock className="w-5 h-5 mb-1" />
-              <span className="text-xs">Activity</span>
-            </button>
-            <button
-              className="flex flex-col items-center py-2 text-muted-foreground"
-              onClick={() => {
-                setTrackingId(null);
-                onNavigate("tracking");
-              }}
-            >
-              <TruckIcon className="w-5 h-5 mb-1" />
-              <span className="text-xs">Track</span>
-            </button>
-            <button
-              className="flex flex-col items-center py-2 text-muted-foreground"
-              onClick={() => onNavigate("profile")}
-            >
-              <div className="w-5 h-5 mb-1 bg-muted rounded-full" />
-              <span className="text-xs">Profile</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

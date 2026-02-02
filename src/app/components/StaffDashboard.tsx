@@ -29,7 +29,7 @@ interface StaffDashboardProps {
 }
 
 export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps) {
-    const { shipments, approveShipment, assignAgent, userProfile, signOut, availableAgents, issues, resolveIssue } = useShipment();
+    const { shipments, approveShipment, rejectShipment, assignAgent, userProfile, signOut, availableAgents, issues, resolveIssue } = useShipment();
     const [selectedAgentId, setSelectedAgentId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -63,7 +63,7 @@ export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps)
 
     const handleRejectConfirm = () => {
         if (shipmentToReject) {
-            // In a real app, this would update the status to 'rejected'
+            rejectShipment(shipmentToReject);
             toast.error(`Shipment ${shipmentToReject} rejected`);
             setShipmentToReject(null);
         }
@@ -74,7 +74,7 @@ export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps)
         const agent = availableAgents.find(a => a.id === selectedAgentId);
         if (!agent) return;
 
-        assignAgent(id, agent.name, agent.id);
+        assignAgent(id, agent.name, agent.id, agent.phone || '+233 00 000 0000');
         toast.success(`Agent ${agent.name} assigned to ${id}`);
         setSelectedAgentId('');
     };

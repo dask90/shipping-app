@@ -14,6 +14,7 @@ export function AuthScreen() {
   const { signIn, signUp } = useShipment();
   const [isLoading, setIsLoading] = useState(false);
   const [role, setRole] = useState<'customer' | 'staff' | 'agent' | 'admin'>('customer');
+  const [activeTab, setActiveTab] = useState('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +42,8 @@ export function AuthScreen() {
       toast.error(error.message);
     } else {
       toast.success('Account created successfully! You can now log in.');
+      setActiveTab('login');
+      setPassword(''); // Clear password for security
     }
     setIsLoading(false);
   };
@@ -60,7 +63,7 @@ export function AuthScreen() {
         </div>
 
         <Card className="p-6 shadow-lg">
-          <Tabs defaultValue="login">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>

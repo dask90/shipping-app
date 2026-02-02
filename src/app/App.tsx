@@ -9,29 +9,43 @@ import { AdminDashboard } from '@/app/components/AdminDashboard';
 import { StaffDashboard } from '@/app/components/StaffDashboard';
 import { AgentDashboard } from '@/app/components/AgentDashboard';
 import { ShipmentProvider, useShipment } from '@/app/context/ShipmentContext';
+import { CustomerNavbar } from '@/app/components/CustomerNavbar';
 import { Toaster } from 'sonner';
 
-type Screen = 'dashboard' | 'create-shipment' | 'tracking' | 'notifications' | 'profile' | 'admin' | 'staff' | 'agent' | 'auth';
+
 
 function AppContent() {
-  const { currentUser, userRole, setTrackingId } = useShipment();
+  const { currentUser, userRole, setTrackingId, isLoadingProfile } = useShipment();
   const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
 
   const handleNavigate = (screen: string) => {
     if (screen === 'auth') {
       setTrackingId(null);
     }
-    setCurrentScreen(screen as Screen);
+    setCurrentScreen(screen);
   };
+
+  if (isLoadingProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-muted-foreground animate-pulse font-medium">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If not logged in, always show Auth
   if (!currentUser) {
     return <AuthScreen />;
   }
 
+  const isCustomerScreen = userRole === 'customer' &&
+    ['dashboard', 'create-shipment', 'tracking', 'notifications', 'profile'].includes(currentScreen);
 
   const renderScreen = () => {
-    // If we're on the default dashboard, redirect based on role
+    // Role-based dashboards
     if (currentScreen === 'dashboard') {
       switch (userRole) {
         case 'staff': return <StaffDashboard onNavigate={handleNavigate} />;
@@ -41,24 +55,31 @@ function AppContent() {
       }
     }
 
+    // Explicit screens
     switch (currentScreen) {
       case 'staff': return <StaffDashboard onNavigate={handleNavigate} />;
       case 'agent': return <AgentDashboard onNavigate={handleNavigate} />;
       case 'admin': return <AdminDashboard onNavigate={handleNavigate} />;
-      case 'dashboard': return <CustomerDashboard onNavigate={handleNavigate} />;
       case 'create-shipment': return <CreateShipment onNavigate={handleNavigate} />;
       case 'tracking': return <ShipmentTracking onNavigate={handleNavigate} />;
       case 'notifications': return <NotificationsScreen onNavigate={handleNavigate} />;
       case 'profile': return <ProfileScreen onNavigate={handleNavigate} />;
-      default: return <CustomerDashboard onNavigate={handleNavigate} />;
+      default:
+        if (userRole === 'customer') return <CustomerDashboard onNavigate={handleNavigate} />;
+        return <AuthScreen />; // Fallback
     }
   };
 
   return (
-    <>
-      {renderScreen()}
+    <div className="flex flex-col min-h-screen">
+      <main className="flex-1 pb-20">
+        {renderScreen()}
+      </main>
+      {isCustomerScreen && (
+        <CustomerNavbar currentScreen={currentScreen} onNavigate={handleNavigate} />
+      )}
       <Toaster />
-    </>
+    </div>
   );
 }
 
