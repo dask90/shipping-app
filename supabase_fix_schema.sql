@@ -25,6 +25,12 @@ ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "currentLat" DOUBLE PRECISION;
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "currentLng" DOUBLE PRECISION;
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "lastUpdated" TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
+-- Dynamic Destination Coordinates
+ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "fromLat" DOUBLE PRECISION;
+ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "fromLng" DOUBLE PRECISION;
+ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "toLat" DOUBLE PRECISION;
+ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "toLng" DOUBLE PRECISION;
+
 -- Ensure RLS policies are up to date
 DROP POLICY IF EXISTS "Users can view their own shipments" ON shipments;
 CREATE POLICY "Users can view their own shipments" ON shipments
@@ -48,3 +54,42 @@ CREATE POLICY "Staff and Admin full access" ON shipments
             AND (role = 'staff' OR role = 'admin')
         )
     );
+
+ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "deliveryPhotoUrl" TEXT;
+
+-- Messages Table for Real-time Chat
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    shipment_id TEXT NOT NULL,
+    sender_id UUID NOT NULL REFERENCES auth.users(id),
+    receiver_id UUID NOT NULL REFERENCES auth.users(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for Messages
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own messages" ON messages;
+CREATE POLICY "Users can view their own messages" ON messages
+    FOR SELECT USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+
+DROP POLICY IF EXISTS "Users can send their own messages" ON messages;
+CREATE POLICY "Users can send their own messages" ON messages
+    FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+-- Staff and Admin can view all messages
+DROP POLICY IF EXISTS "Staff and Admin can view all messages" ON messages;
+CREATE POLICY "Staff and Admin can view all messages" ON messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND (role = 'staff' OR role = 'admin')
+        )
+    );
+
+-- Populate demo coordinates
+UPDATE shipments SET "toLat" = 5.6037, "toLng" = -0.1870, "fromLat" = 5.62, "fromLng" = -0.19 WHERE "toCity" = 'Accra';
+UPDATE shipments SET "toLat" = 6.6666, "toLng" = -1.6163, "fromLat" = 5.6037, "fromLng" = -0.1870 WHERE "toCity" = 'Kumasi';
+UPDATE shipments SET "toLat" = 9.4075, "toLng" = -0.8533, "fromLat" = 6.6666, "fromLng" = -1.6163 WHERE "toCity" = 'Tamale';

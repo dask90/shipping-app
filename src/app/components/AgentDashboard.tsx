@@ -4,7 +4,7 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
 import { useShipment } from '@/app/context/ShipmentContext';
-import { Package, MapPin, Truck, CheckCircle, Navigation, MessageSquare, Send, X, User } from 'lucide-react';
+import { Package, MapPin, Truck, CheckCircle, Navigation, MessageSquare, Send, X, User, PhoneOff, Mic, Video } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { NotificationCenter } from './NotificationCenter';
@@ -14,12 +14,19 @@ interface AgentDashboardProps {
 }
 
 export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps) {
-    const { shipments, currentUser, acceptRequest, confirmPickup, markInTransit, updateCurrentLocation, markDelivered, userProfile, signOut, sendMessage, fetchMessages } = useShipment();
+    const { shipments, currentUser, acceptRequest, confirmPickup, markInTransit, markDelivered, userProfile, signOut, sendMessage, fetchMessages, subscribeToMessages } = useShipment();
 
     // UI States
     const [activeChatShipment, setActiveChatShipment] = useState<any>(null);
     const [chatMessage, setChatMessage] = useState('');
     const [messages, setMessages] = useState<any[]>([]);
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+    const [deliveryShipmentId, setDeliveryShipmentId] = useState<string | null>(null);
+    const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isCalling, setIsCalling] = useState(false);
+    const [callDuration, setCallDuration] = useState(0);
+    const [callingTask, setCallingTask] = useState<any>(null);
     const chatScrollRef = useRef<HTMLDivElement>(null);
 
     // Filter for shipments assigned to the current agent
@@ -41,27 +48,34 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
             };
             loadMessages();
 
-            const interval = setInterval(loadMessages, 3000);
-            return () => clearInterval(interval);
+            const unsubscribe = subscribeToMessages(activeChatShipment.id, (newMessage) => {
+                setMessages(prev => {
+                    if (prev.find(m => m.id === newMessage.id)) return prev;
+                    return [...prev, newMessage];
+                });
+            });
+
+            return () => unsubscribe();
         }
     }, [activeChatShipment?.id]);
 
     useEffect(() => {
-        if (chatScrollRef.current) {
-            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        let timer: NodeJS.Timeout;
+        if (isCalling) {
+            timer = setInterval(() => {
+                setCallDuration(prev => prev + 1);
+            }, 1000);
         }
-    }, [messages]);
+        return () => clearInterval(timer);
+    }, [isCalling]);
 
-    const handleUpdateLocation = (id: string, currentLat: number = 5.6037, currentLng: number = -0.1870) => {
-        // Simulate movement by adding small random offsets
-        const newLat = currentLat + (Math.random() - 0.5) * 0.01;
-        const newLng = currentLng + (Math.random() - 0.5) * 0.01;
-
-        updateCurrentLocation(id, newLat, newLng);
-        toast.info(`Location updated to ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const handleAction = (id: string, currentStatus: string) => {
+    const handleAction = async (id: string, currentStatus: string) => {
         switch (currentStatus) {
             case 'assigned':
                 acceptRequest(id);
@@ -76,10 +90,38 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
                 toast.info('Shipment In Transit');
                 break;
             case 'in_transit':
-                markDelivered(id);
-                toast.success('Shipment Delivered!');
+                setDeliveryShipmentId(id);
+                setShowDeliveryModal(true);
                 break;
         }
+    };
+
+    const handleDeliveryConfirm = async () => {
+        if (deliveryShipmentId && deliveryPhoto) {
+            await markDelivered(deliveryShipmentId, deliveryPhoto);
+            setShowDeliveryModal(false);
+            setDeliveryShipmentId(null);
+            setDeliveryPhoto(null);
+            toast.success('Shipment Delivered!');
+        } else {
+            toast.error('Please take/upload a delivery photo');
+        }
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        // In a real app, upload to Supabase Storage
+        // For this demo, we'll use a FileReader to get a base64 string
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setDeliveryPhoto(reader.result as string);
+            setIsUploading(false);
+            toast.success('Photo uploaded');
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSendMessage = async () => {
@@ -95,7 +137,7 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
         }
     };
 
-    const getActionButton = (status: string, id: string, lat?: number, lng?: number) => {
+    const getActionButton = (status: string, id: string) => {
         switch (status) {
             case 'assigned':
                 return (
@@ -120,16 +162,10 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
                 );
             case 'in_transit':
                 return (
-                    <div className="flex gap-2">
-                        <Button onClick={() => handleUpdateLocation(id, lat, lng)} variant="outline" className="flex-1">
-                            <MapPin className="w-4 h-4 mr-2" />
-                            Update Loc
-                        </Button>
-                        <Button onClick={() => handleAction(id, status)} className="flex-1 bg-green-600 hover:bg-green-700">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Delivered
-                        </Button>
-                    </div>
+                    <Button onClick={() => handleAction(id, status)} className="w-full bg-green-600 hover:bg-green-700">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Finish Delivery
+                    </Button>
                 );
             default:
                 return null;
@@ -182,8 +218,11 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
                                         <div className="text-sm text-muted-foreground">{task.fromCity} → {task.toCity}</div>
                                     </div>
                                     <div className="flex gap-2">
+                                        <Button variant="ghost" size="icon" onClick={() => { setCallingTask(task); setIsCalling(true); }} className="h-8 w-8 rounded-full">
+                                            <Navigation className="h-4 w-4 text-blue-500 rotate-45" />
+                                        </Button>
                                         <Button variant="ghost" size="icon" onClick={() => setActiveChatShipment(task)} className="h-8 w-8 rounded-full">
-                                            <MessageSquare className="h-4 h-4 text-accent" />
+                                            <MessageSquare className="h-4 w-4 text-accent" />
                                         </Button>
                                         <Badge variant="outline" className="uppercase h-6">{task.status.replace('_', ' ')}</Badge>
                                     </div>
@@ -207,7 +246,7 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
                                     </div>
                                 </div>
 
-                                {getActionButton(task.status, task.id, task.currentLat, task.currentLng)}
+                                {getActionButton(task.status, task.id)}
                             </Card>
                         ))
                     )}
@@ -283,6 +322,85 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
                     </div>
                 </div>
             </div>
+
+            {/* Delivery Proof Modal */}
+            {showDeliveryModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <Card className="w-full max-w-md p-6 animate-in zoom-in-95">
+                        <div className="flex justify-between items-start mb-4">
+                            <h2 className="text-xl font-bold flex items-center">
+                                <Truck className="w-5 h-5 mr-2 text-accent" />
+                                Proof of Delivery
+                            </h2>
+                            <Button variant="ghost" size="icon" onClick={() => setShowDeliveryModal(false)}>
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+
+                        <div className="space-y-4 text-center">
+                            <div className="text-sm text-muted-foreground mb-4">
+                                Please take a photo of the item being handed over to the recipient.
+                            </div>
+
+                            <div className="w-full h-48 bg-muted rounded-xl border-2 border-dashed border-muted-foreground/20 flex flex-items-center justify-center overflow-hidden relative group">
+                                {deliveryPhoto ? (
+                                    <img src={deliveryPhoto} alt="Delivery proof" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="flex flex-col items-center">
+                                        <Truck className="w-12 h-12 text-muted-foreground/30 mb-2" />
+                                        <p className="text-xs text-muted-foreground">No photo captured</p>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handlePhotoUpload}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                            </div>
+
+                            <Button
+                                className="w-full bg-accent hover:bg-accent/90"
+                                disabled={!deliveryPhoto || isUploading}
+                                onClick={handleDeliveryConfirm}
+                            >
+                                {isUploading ? 'Uploading...' : 'Confirm Delivery'}
+                            </Button>
+
+                            <Button variant="ghost" onClick={() => setShowDeliveryModal(false)} className="w-full">
+                                Cancel
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* Call Simulation Overlay */}
+            {isCalling && (
+                <div className="fixed inset-0 z-[60] bg-accent/95 text-accent-foreground flex flex-col items-center justify-between p-12">
+                    <div className="text-center mt-20">
+                        <div className="w-24 h-24 bg-black/10 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl font-bold border-4 border-white animate-pulse">
+                            {callingTask?.customerName?.charAt(0)}
+                        </div>
+                        <h2 className="text-3xl font-bold mb-2">{callingTask?.customerName}</h2>
+                        <p className="opacity-80">Customer • {callingTask?.customerPhone}</p>
+                        <div className="mt-4 text-xl font-mono">{formatDuration(callDuration)}</div>
+                    </div>
+
+                    <div className="flex gap-8 mb-20 text-white">
+                        <Button size="icon" variant="ghost" className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20">
+                            <Mic className="w-6 h-6" />
+                        </Button>
+                        <Button size="icon" className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 shadow-xl shadow-red-900/50" onClick={() => { setIsCalling(false); setCallDuration(0); setCallingTask(null); }}>
+                            <PhoneOff className="w-8 h-8" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20">
+                            <Video className="w-6 h-6" />
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

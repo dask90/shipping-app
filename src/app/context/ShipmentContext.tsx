@@ -52,6 +52,11 @@ export interface Shipment {
     customer_id?: string;
     currentLat?: number;
     currentLng?: number;
+    deliveryPhotoUrl?: string;
+    fromLat?: number;
+    fromLng?: number;
+    toLat?: number;
+    toLng?: number;
 }
 
 interface ShipmentContextType {
@@ -69,7 +74,7 @@ interface ShipmentContextType {
     assignAgent: (id: string, agentName: string, agentId: string, agentPhone: string) => Promise<void>;
     confirmPickup: (id: string) => Promise<void>;
     markInTransit: (id: string) => Promise<void>;
-    markDelivered: (id: string) => Promise<void>;
+    markDelivered: (id: string, photoUrl?: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<{ error: any }>;
     signUp: (email: string, password: string, name: string, phone: string, role: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
@@ -89,6 +94,7 @@ interface ShipmentContextType {
     reportIssue: (shipmentId: string, issueType: string, description: string) => Promise<{ error: any }>;
     sendMessage: (shipmentId: string, receiverId: string, content: string) => Promise<{ error: any }>;
     fetchMessages: (shipmentId: string) => Promise<{ data: any[] | null; error: any }>;
+    subscribeToMessages: (shipmentId: string, callback: (message: any) => void) => () => void;
     issues: any[];
     fetchIssues: () => Promise<void>;
     resolveIssue: (issueId: string) => Promise<void>;
@@ -224,6 +230,34 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
+    // Movement Simulation Effect
+    useEffect(() => {
+        const timer = setInterval(async () => {
+            const inTransitShipments = shipments.filter(s => s.status === 'in_transit');
+
+            for (const s of inTransitShipments) {
+                if (s.currentLat && s.currentLng && s.toLat && s.toLng) {
+                    const dLat = s.toLat - s.currentLat;
+                    const dLng = s.toLng - s.currentLng;
+                    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+
+                    if (dist > 0.0005) {
+                        const step = 0.0002; // Small step every 5s
+                        const newLat = s.currentLat + (dLat / dist) * step;
+                        const newLng = s.currentLng + (dLng / dist) * step;
+
+                        await supabase
+                            .from('shipments')
+                            .update({ currentLat: newLat, currentLng: newLng })
+                            .eq('id', s.id);
+                    }
+                }
+            }
+        }, 5000);
+
+        return () => clearInterval(timer);
+    }, [shipments.filter(s => s.status === 'in_transit').length]);
+
     // 2. Global Data Effect (Runs once on mount)
     useEffect(() => {
         fetchShipments();
@@ -309,7 +343,9 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 status: 'pending_approval',
                 date,
                 history: newHistory,
-                customer_id: currentUser?.id
+                customer_id: currentUser?.id,
+                currentLat: data.fromLat,
+                currentLng: data.fromLng
             }])
             .select();
 
@@ -612,7 +648,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         ));
     };
 
-    const markDelivered = async (id: string) => {
+    const markDelivered = async (id: string, photoUrl?: string) => {
         const date = new Date().toISOString().split('T')[0];
         const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -630,7 +666,8 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             .from('shipments')
             .update({
                 status: 'delivered',
-                history: updatedHistory
+                history: updatedHistory,
+                deliveryPhotoUrl: photoUrl
             })
             .eq('id', id);
 
@@ -643,9 +680,20 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             s.id === id ? {
                 ...s,
                 status: 'delivered',
-                history: updatedHistory
+                history: updatedHistory,
+                deliveryPhotoUrl: photoUrl
             } : s
         ));
+
+        if (shipment.customer_id) {
+            await addNotification(
+                shipment.customer_id,
+                'Shipment Delivered',
+                `Your shipment ${id} has been delivered successfully. Proof of delivery is available in tracking.`,
+                'success',
+                id
+            );
+        }
     };
 
     const reportIssue = async (shipmentId: string, issueType: string, description: string) => {
@@ -701,6 +749,28 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         }
 
         return { data, error };
+    };
+
+    const subscribeToMessages = (shipmentId: string, callback: (message: any) => void) => {
+        const channel = supabase
+            .channel(`shipment-messages-${shipmentId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `shipment_id=eq.${shipmentId}`
+                },
+                (payload) => {
+                    callback(payload.new);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     };
 
     const resolveIssue = async (issueId: string) => {
@@ -884,7 +954,8 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             fetchMessages,
             issues,
             fetchIssues,
-            resolveIssue
+            resolveIssue,
+            subscribeToMessages
         }}>
             {children}
         </ShipmentContext.Provider>

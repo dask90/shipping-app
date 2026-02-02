@@ -35,6 +35,10 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
     destinationAddress: '',
     recipientName: '',
     recipientPhone: '',
+    fromLat: 5.6037,
+    fromLng: -0.1870,
+    toLat: 6.6666,
+    toLng: -1.6163
   });
 
   const totalSteps = 4;
@@ -82,6 +86,10 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
         deliveryAddress: formData.destinationAddress,
         recipientName: formData.recipientName,
         recipientPhone: formData.recipientPhone,
+        fromLat: formData.fromLat,
+        fromLng: formData.fromLng,
+        toLat: formData.toLat,
+        toLng: formData.toLng
       };
 
       createShipment(newShipment);

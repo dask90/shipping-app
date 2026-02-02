@@ -24,7 +24,7 @@ interface ShipmentTrackingProps {
 }
 
 export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
-  const { shipments, trackingId, setTrackingId, reportIssue, sendMessage, fetchMessages, currentUser } = useShipment();
+  const { shipments, trackingId, setTrackingId, reportIssue, sendMessage, fetchMessages, currentUser, subscribeToMessages } = useShipment();
   const [searchId, setSearchId] = useState('');
 
   // UI States
@@ -45,18 +45,23 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
   const shipment = shipments.find(s => s.id === (trackingId || searchId.toUpperCase()));
 
   useEffect(() => {
-    if (showChat && shipment) {
+    if (shipment) {
       const loadMessages = async () => {
         const { data } = await fetchMessages(shipment.id);
         if (data) setMessages(data);
       };
       loadMessages();
 
-      // Set up simple interval to check for new messages in this demo
-      const interval = setInterval(loadMessages, 3000);
-      return () => clearInterval(interval);
+      const unsubscribe = subscribeToMessages(shipment.id, (newMessage) => {
+        setMessages(prev => {
+          if (prev.find(m => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      });
+
+      return () => unsubscribe();
     }
-  }, [showChat, shipment?.id]);
+  }, [shipment?.id]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -209,8 +214,8 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
         <Card className="shadow-lg mb-6 overflow-hidden border-0">
           <div className="w-full h-80 bg-muted relative">
             <LiveTrackingMap
-              agentPos={shipment.currentLat && shipment.currentLng ? [shipment.currentLat, shipment.currentLng] : undefined}
-              destinationPos={shipment.toCity.includes('Kumasi') ? [6.6666, -1.6163] : [5.6037, -0.1870]}
+              currentPos={shipment.currentLat && shipment.currentLng ? [shipment.currentLat, shipment.currentLng] : undefined}
+              destinationPos={shipment.toLat && shipment.toLng ? [shipment.toLat, shipment.toLng] : undefined}
               agentName={shipment.agentName}
             />
 
@@ -280,19 +285,34 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
               <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
               Proof of Delivery
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border border-border rounded-lg p-2 text-center">
-                <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs italic">
-                  [Signature Image]
+            <div className="space-y-4">
+              {shipment.deliveryPhotoUrl ? (
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <img
+                    src={shipment.deliveryPhotoUrl}
+                    alt="Proof of Delivery"
+                    className="w-full h-auto max-h-80 object-cover"
+                  />
+                  <div className="p-3 bg-muted/30 text-xs text-center text-muted-foreground">
+                    Delivered on {shipment.history.find(h => h.status === 'delivered')?.date}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Signed by Recipient</p>
-              </div>
-              <div className="border border-border rounded-lg p-2 text-center">
-                <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs">
-                  <Package className="w-8 h-8 opacity-20" />
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border border-border rounded-lg p-2 text-center">
+                    <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs italic">
+                      [Signature Available]
+                    </div>
+                    <p className="text-xs text-muted-foreground">Signed by Recipient</p>
+                  </div>
+                  <div className="border border-border rounded-lg p-2 text-center">
+                    <div className="h-24 bg-muted mb-2 flex items-center justify-center text-muted-foreground text-xs">
+                      <Package className="w-8 h-8 opacity-20" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Package Photo</p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Package Photo</p>
-              </div>
+              )}
             </div>
           </Card>
         )}

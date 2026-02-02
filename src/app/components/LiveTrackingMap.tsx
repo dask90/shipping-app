@@ -1,6 +1,6 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
@@ -20,7 +20,7 @@ const deliveryIcon = L.icon({
 });
 
 interface LiveTrackingMapProps {
-    agentPos?: [number, number];
+    currentPos?: [number, number];
     destinationPos?: [number, number];
     zoom?: number;
     agentName?: string;
@@ -37,7 +37,7 @@ function RecenterMap({ pos }: { pos: [number, number] }) {
 }
 
 export default function LiveTrackingMap({
-    agentPos,
+    currentPos,
     destinationPos = [5.6037, -0.1870],
     zoom = 13,
     agentName = 'Agent'
@@ -45,7 +45,7 @@ export default function LiveTrackingMap({
     return (
         <div className="w-full h-full rounded-lg overflow-hidden border border-border">
             <MapContainer
-                center={agentPos || destinationPos}
+                center={currentPos || destinationPos}
                 zoom={zoom}
                 scrollWheelZoom={true}
                 style={{ height: '100%', width: '100%' }}
@@ -60,10 +60,21 @@ export default function LiveTrackingMap({
                     <Popup>Destination</Popup>
                 </Marker>
 
+                {/* Route Line */}
+                {currentPos && destinationPos && (
+                    <Polyline
+                        positions={[currentPos, destinationPos]}
+                        color="#2563eb"
+                        weight={3}
+                        dashArray="10, 10"
+                        opacity={0.6}
+                    />
+                )}
+
                 {/* Agent Marker */}
-                {agentPos && (
+                {currentPos && (
                     <>
-                        <Marker position={agentPos} icon={carIcon}>
+                        <Marker position={currentPos} icon={carIcon}>
                             <Popup>
                                 <div className="text-center">
                                     <div className="font-bold">{agentName}</div>
@@ -71,7 +82,7 @@ export default function LiveTrackingMap({
                                 </div>
                             </Popup>
                         </Marker>
-                        <RecenterMap pos={agentPos} />
+                        <RecenterMap pos={currentPos} />
                     </>
                 )}
             </MapContainer>
