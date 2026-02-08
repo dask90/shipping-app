@@ -34,16 +34,18 @@ import {
   LogOut,
   MapPin,
   TrendingUp,
+  ShieldCheck,
 } from 'lucide-react';
 import { NotificationCenter } from './NotificationCenter';
 import { useShipment, ShipmentStatus } from '@/app/context/ShipmentContext';
+import { swal } from '@/app/lib/swal';
 
 interface AdminDashboardProps {
   onNavigate: (screen: string) => void;
 }
 
 export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps) {
-  const { shipments, userProfile, signOut, allProfiles, fetchAllProfiles, issues, resolveIssue, fetchIssues } = useShipment();
+  const { shipments, userProfile, signOut, allProfiles, fetchAllProfiles, issues, resolveIssue, fetchIssues, approveProfile } = useShipment();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +61,7 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
   // Dynamic Analytics Calculation
   const totalShipments = shipments.length;
   const pendingShipments = shipments.filter(s => s.status === 'pending_approval').length;
+  const pendingUsers = allProfiles.filter(p => !p.is_approved).length;
   const deliveredShipments = shipments.filter(s => s.status === 'delivered').length;
 
   const totalRevenue = shipments.reduce((acc, s) => {
@@ -130,6 +133,14 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
             <TabsList className="bg-white border border-border p-1 gap-1">
               <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-white">Overview</TabsTrigger>
               <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-white">Users</TabsTrigger>
+              <TabsTrigger value="approvals" className="data-[state=active]:bg-primary data-[state=active]:text-white relative">
+                Approvals
+                {pendingUsers > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border-2 border-white animate-bounce">
+                    {pendingUsers}
+                  </span>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="shipments" className="data-[state=active]:bg-primary data-[state=active]:text-white">Shipments</TabsTrigger>
               <TabsTrigger value="issues" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                 Issues
@@ -139,7 +150,10 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
               </TabsTrigger>
             </TabsList>
 
-            <Button className="bg-primary hover:bg-primary/90 flex items-center shadow-md">
+            <Button
+              className="bg-primary hover:bg-primary/90 flex items-center shadow-md"
+              onClick={() => swal.toast('Report generation started', 'info')}
+            >
               <Download className="w-4 h-4 mr-2" />
               Generate Report
             </Button>
@@ -207,6 +221,21 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                 </div>
                 <div className="mt-4 flex items-center text-xs text-muted-foreground">
                   <span>Success rate: {totalShipments ? Math.round((deliveredShipments / totalShipments) * 100) : 0}%</span>
+                </div>
+              </Card>
+
+              <Card className="p-5 border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Pending Users</p>
+                    <h3 className="text-3xl font-bold mt-1 text-red-600">{pendingUsers}</h3>
+                  </div>
+                  <div className="p-2.5 bg-red-50 text-red-600 rounded-lg">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center text-xs text-muted-foreground underline cursor-pointer" onClick={() => setActiveTab('approvals')}>
+                  <span>Action required for these</span>
                 </div>
               </Card>
             </div>
@@ -286,8 +315,8 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                     key={role}
                     onClick={() => setUserRoleFilter(role)}
                     className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${userRoleFilter === role
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-muted'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted'
                       }`}
                   >
                     {role.charAt(0).toUpperCase() + role.slice(1)}s
@@ -313,6 +342,7 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                     <TableHead className="font-bold">User</TableHead>
                     <TableHead className="font-bold">Role</TableHead>
                     <TableHead className="font-bold">Contact</TableHead>
+                    <TableHead className="font-bold">Status</TableHead>
                     <TableHead className="font-bold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -339,9 +369,9 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`capitalize border-0 ${user.role === 'admin' ? 'bg-red-50 text-red-700' :
-                              user.role === 'staff' ? 'bg-blue-50 text-blue-700' :
-                                user.role === 'agent' ? 'bg-purple-50 text-purple-700' :
-                                  'bg-gray-50 text-gray-700'
+                            user.role === 'staff' ? 'bg-blue-50 text-blue-700' :
+                              user.role === 'agent' ? 'bg-purple-50 text-purple-700' :
+                                'bg-gray-50 text-gray-700'
                             }`}>
                             {user.role}
                           </Badge>
@@ -351,10 +381,26 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                             <p className="font-medium">{user.phone || 'No phone'}</p>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <Badge className={user.is_approved ? 'bg-green-100 text-green-800 border-0' : 'bg-red-100 text-red-800 border-0'}>
+                            {user.is_approved ? 'Active' : 'Pending'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="h-8 hover:bg-muted text-primary text-xs">
-                            View Details
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            {!user.is_approved && (
+                              <Button
+                                size="sm"
+                                className="h-8 bg-green-600 hover:bg-green-700 text-white text-xs"
+                                onClick={() => approveProfile(user.id)}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" className="h-8 hover:bg-muted text-primary text-xs">
+                              View Details
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -438,6 +484,65 @@ export function AdminDashboard({ onNavigate: _onNavigate }: AdminDashboardProps)
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* Approvals Tab */}
+
+          {/* Approvals Tab */}
+          <TabsContent value="approvals" className="m-0 outline-none">
+            <Card className="border-none shadow-sm overflow-hidden bg-white">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="font-bold">User</TableHead>
+                    <TableHead className="font-bold">Requested Role</TableHead>
+                    <TableHead className="font-bold">Contact</TableHead>
+                    <TableHead className="font-bold text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allProfiles.filter(u => !u.is_approved).map((user) => (
+                    <TableRow key={user.id} className="hover:bg-muted/20">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            {user.name?.[0] || 'U'}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{user.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{user.id}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {user.phone || 'No phone'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          className="bg-primary hover:bg-primary/90 text-white"
+                          onClick={() => approveProfile(user.id)}
+                        >
+                          Approve Registration
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {allProfiles.filter(u => !u.is_approved).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                        No pending approvals.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </Card>

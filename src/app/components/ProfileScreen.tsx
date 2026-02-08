@@ -22,7 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useShipment, Shipment } from '@/app/context/ShipmentContext';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 
 interface ProfileScreenProps {
   onNavigate: (screen: string) => void;
@@ -65,9 +65,9 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     }
 
     if (profileError || emailError) {
-      toast.error(profileError?.message || emailError?.message || 'Failed to update profile');
+      swal.toast(profileError?.message || emailError?.message || 'Failed to update profile', 'error');
     } else {
-      toast.success('Profile updated successfully');
+      swal.toast('Profile updated successfully', 'success');
       setIsEditing(false);
     }
     setIsUpdating(false);
@@ -83,12 +83,12 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
 
     // Basic validation
     if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
+      swal.toast('Please upload an image file', 'error');
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image must be less than 2MB');
+      swal.toast('Image must be less than 2MB', 'error');
       return;
     }
 
@@ -96,13 +96,13 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const { publicUrl, error } = await uploadAvatar(file);
 
     if (error) {
-      toast.error('Failed to upload image');
+      swal.toast('Failed to upload image', 'error');
     } else if (publicUrl) {
       const { error: updateError } = await updateProfile({ avatar_url: publicUrl });
       if (updateError) {
-        toast.error('Failed to update profile picture');
+        swal.toast('Failed to update profile picture', 'error');
       } else {
-        toast.success('Profile picture updated!');
+        swal.toast('Profile picture updated!', 'success');
       }
     }
     setIsUploading(false);

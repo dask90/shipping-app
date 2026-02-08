@@ -5,7 +5,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
 import { useShipment } from '@/app/context/ShipmentContext';
 import { Package, MapPin, Truck, CheckCircle, Navigation, MessageSquare, Send, X, User, PhoneOff, Mic, Video } from 'lucide-react';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 
 import { NotificationCenter } from './NotificationCenter';
 
@@ -79,15 +79,15 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
         switch (currentStatus) {
             case 'assigned':
                 acceptRequest(id);
-                toast.success('Request Accepted');
+                swal.toast('Request Accepted', 'success');
                 break;
             case 'accepted':
                 confirmPickup(id);
-                toast.success('Pickup Confirmed');
+                swal.toast('Pickup Confirmed', 'success');
                 break;
             case 'picked_up':
                 markInTransit(id);
-                toast.info('Shipment In Transit');
+                swal.toast('Shipment In Transit', 'info');
                 break;
             case 'in_transit':
                 setDeliveryShipmentId(id);
@@ -102,9 +102,9 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
             setShowDeliveryModal(false);
             setDeliveryShipmentId(null);
             setDeliveryPhoto(null);
-            toast.success('Shipment Delivered!');
+            swal.toast('Shipment Delivered!', 'success');
         } else {
-            toast.error('Please take/upload a delivery photo');
+            swal.toast('Please take/upload a delivery photo', 'error');
         }
     };
 
@@ -119,7 +119,7 @@ export function AgentDashboard({ onNavigate: _onNavigate }: AgentDashboardProps)
         reader.onloadend = () => {
             setDeliveryPhoto(reader.result as string);
             setIsUploading(false);
-            toast.success('Photo uploaded');
+            swal.toast('Photo uploaded', 'success');
         };
         reader.readAsDataURL(file);
     };

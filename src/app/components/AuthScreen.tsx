@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Truck, Mail, Phone, ShieldCheck } from 'lucide-react';
 
 import { useShipment } from '@/app/context/ShipmentContext';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 
 export function AuthScreen() {
   const { signIn, signUp } = useShipment();
@@ -20,15 +20,30 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [passwordCriteria, setPasswordCriteria] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+  });
+
+  const validatePassword = (pass: string) => {
+    setPasswordCriteria({
+      length: pass.length >= 6,
+      uppercase: /[A-Z]/.test(pass),
+      lowercase: /[a-z]/.test(pass),
+      number: /[0-9]/.test(pass),
+    });
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
-      toast.error(error.message);
+      swal.toast(error.message, 'error');
     } else {
-      toast.success('Logged in successfully');
+      swal.toast('Logged in successfully', 'success');
     }
     setIsLoading(false);
   };
@@ -37,11 +52,32 @@ export function AuthScreen() {
     e.preventDefault();
     setIsLoading(true);
 
+    const isPasswordValid = passwordCriteria.length &&
+      passwordCriteria.uppercase &&
+      passwordCriteria.lowercase &&
+      passwordCriteria.number;
+
+    if (!isPasswordValid) {
+      swal.toast('Please meet all password requirements', 'warning');
+      setIsLoading(false);
+      return;
+    }
+
     const { error } = await signUp(email, password, name, phone, role);
     if (error) {
-      toast.error(error.message);
+      console.error('[Signup Error Detail]', error);
+      // Handle the 422 error explicitly if we can identify it
+      if (error.status === 422) {
+        swal.alert('Registration Failed', 'Password is too weak or data is invalid. Please try a stronger password.', 'error');
+      } else {
+        swal.toast(error.message, 'error');
+      }
     } else {
-      toast.success('Account created successfully! You can now log in.');
+      if (role === 'staff' || role === 'admin') {
+        swal.alert('Registration Successful', 'An admin must approve your account before you can log in.', 'success');
+      } else {
+        swal.toast('Account created successfully! You can now log in.', 'success');
+      }
       setActiveTab('login');
       setPassword('');
     }
@@ -165,11 +201,33 @@ export function AuthScreen() {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Create password"
+                    placeholder="Min. 6 characters"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      validatePassword(e.target.value);
+                    }}
                     required
+                    minLength={6}
                   />
+                  <div className="grid grid-cols-2 gap-2 mt-2 p-3 bg-muted/30 rounded-lg border border-border/50">
+                    <div className={`flex items-center text-[10px] font-medium transition-colors ${passwordCriteria.length ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <ShieldCheck className={`w-3 h-3 mr-1.5 transition-opacity ${passwordCriteria.length ? 'opacity-100' : 'opacity-30'}`} />
+                      6+ Characters
+                    </div>
+                    <div className={`flex items-center text-[10px] font-medium transition-colors ${passwordCriteria.uppercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <ShieldCheck className={`w-3 h-3 mr-1.5 transition-opacity ${passwordCriteria.uppercase ? 'opacity-100' : 'opacity-30'}`} />
+                      Uppercase (A-Z)
+                    </div>
+                    <div className={`flex items-center text-[10px] font-medium transition-colors ${passwordCriteria.lowercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <ShieldCheck className={`w-3 h-3 mr-1.5 transition-opacity ${passwordCriteria.lowercase ? 'opacity-100' : 'opacity-30'}`} />
+                      Lowercase (a-z)
+                    </div>
+                    <div className={`flex items-center text-[10px] font-medium transition-colors ${passwordCriteria.number ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <ShieldCheck className={`w-3 h-3 mr-1.5 transition-opacity ${passwordCriteria.number ? 'opacity-100' : 'opacity-30'}`} />
+                      Number (0-9)
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

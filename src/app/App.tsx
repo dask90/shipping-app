@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { AuthScreen } from '@/app/components/AuthScreen';
 import { CustomerDashboard } from '@/app/components/CustomerDashboard';
 import { CreateShipment } from '@/app/components/CreateShipment';
+import { Card } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
 import { ShipmentTracking } from '@/app/components/ShipmentTracking';
 import { NotificationsScreen } from '@/app/components/NotificationsScreen';
 import { ProfileScreen } from '@/app/components/ProfileScreen';
@@ -10,12 +12,47 @@ import { StaffDashboard } from '@/app/components/StaffDashboard';
 import { AgentDashboard } from '@/app/components/AgentDashboard';
 import { ShipmentProvider, useShipment } from '@/app/context/ShipmentContext';
 import { CustomerNavbar } from '@/app/components/CustomerNavbar';
-import { Toaster } from 'sonner';
+import { Clock, LogOut } from 'lucide-react';
 
 
+
+function PendingApproval() {
+  const { signOut, userProfile } = useShipment();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <Card className="max-w-md w-full p-8 text-center space-y-6 border-none shadow-2xl bg-white/80 backdrop-blur-sm">
+        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Account Pending Approval</h2>
+          <p className="text-muted-foreground">
+            Hi {userProfile?.name}, your {userProfile?.role} account has been created but requires administrator approval before you can access the dashboard.
+          </p>
+        </div>
+        <div className="p-4 bg-muted/50 rounded-lg text-sm text-left border border-border">
+          <p className="font-semibold mb-1">What happens next?</p>
+          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            <li>Administrator will review your request</li>
+            <li>Once approved, you will have full access</li>
+            <li>Usually takes less than 24 hours</li>
+          </ul>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-center gap-2"
+          onClick={() => signOut()}
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out & Return Home
+        </Button>
+      </Card>
+    </div>
+  );
+}
 
 function AppContent() {
-  const { currentUser, userRole, setTrackingId, isLoadingProfile } = useShipment();
+  const { currentUser, userRole, setTrackingId, isLoadingProfile, userProfile } = useShipment();
   const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
 
   const handleNavigate = (screen: string) => {
@@ -39,6 +76,11 @@ function AppContent() {
   // If not logged in, always show Auth
   if (!currentUser) {
     return <AuthScreen />;
+  }
+
+  // Check for approval (only for staff/admin/agent - customers are auto-approved)
+  if (userProfile && !userProfile.is_approved) {
+    return <PendingApproval />;
   }
 
   const isCustomerScreen = userRole === 'customer' &&
@@ -78,7 +120,6 @@ function AppContent() {
       {isCustomerScreen && (
         <CustomerNavbar currentScreen={currentScreen} onNavigate={handleNavigate} />
       )}
-      <Toaster />
     </div>
   );
 }

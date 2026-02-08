@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { toast } from 'sonner';
+import { swal } from '../lib/swal';
 
 export type ShipmentStatus =
     | 'pending_approval'
@@ -100,6 +100,7 @@ interface ShipmentContextType {
     resolveIssue: (issueId: string) => Promise<void>;
     allProfiles: any[];
     fetchAllProfiles: () => Promise<void>;
+    approveProfile: (userId: string) => Promise<void>;
 }
 
 const ShipmentContext = createContext<ShipmentContextType | undefined>(undefined);
@@ -137,7 +138,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (data) {
-            console.log('[ShipmentContext] Profile loaded:', data.role);
+            console.log('[ShipmentContext] Profile loaded:', data.role, 'Approved:', data.is_approved);
             setUserProfile(data);
             setUserRole(data.role as any);
         } else {
@@ -299,7 +300,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                 if (payload.eventType === 'UPDATE') {
                     setShipments(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
                     if (payload.old.status !== payload.new.status) {
-                        toast.info(`Shipment ${payload.new.id} status updated to ${payload.new.status.replace('_', ' ')}`);
+                        swal.toast(`Shipment ${payload.new.id} status updated to ${payload.new.status.replace('_', ' ')}`, 'info');
                     }
                 } else {
                     fetchShipments();
@@ -328,7 +329,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             }, (payload) => {
                 setNotifications(prev => [payload.new as Notification, ...prev]);
                 setUnreadCount(prev => prev + 1);
-                toast.success(payload.new.title);
+                swal.toast(payload.new.title, 'success');
             })
             .subscribe();
 
@@ -738,7 +739,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             }]);
 
         if (!error) {
-            toast.success('Issue reported successfully');
+            swal.toast('Issue reported successfully', 'success');
         } else {
             console.error('[Supabase Report Issue Error]', error);
         }
@@ -818,7 +819,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
         if (!error) {
             setIssues(prev => prev.map(issue => issue.id === issueId ? { ...issue, status: 'resolved' } : issue));
-            toast.success('Issue marked as resolved');
+            swal.toast('Issue marked as resolved', 'success');
         } else {
             console.error('[Supabase Resolve Issue Error]', error);
         }
@@ -846,6 +847,9 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         if (error) return { error };
 
         if (data.user) {
+            // Default is_approved to true for customer/agent, false for staff/admin
+            const isApproved = role === 'customer' || role === 'agent';
+
             const { error: profileError } = await supabase
                 .from('profiles')
                 .insert([
@@ -854,6 +858,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                         name,
                         phone,
                         role,
+                        is_approved: isApproved
                     }
                 ]);
 
@@ -861,6 +866,22 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
         }
 
         return { error: null };
+    };
+
+    const approveProfile = async (userId: string) => {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ is_approved: true })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('[Supabase Approve Profile Error]', error);
+            swal.toast('Failed to approve profile', 'error');
+            return;
+        }
+
+        setAllProfiles(prev => prev.map(p => p.id === userId ? { ...p, is_approved: true } : p));
+        swal.toast('Profile approved successfully', 'success');
     };
 
     const signOut = async () => {
@@ -983,6 +1004,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             fetchAgents,
             allProfiles,
             fetchAllProfiles,
+            approveProfile,
             acceptRequest,
             updateCurrentLocation,
             reportIssue,

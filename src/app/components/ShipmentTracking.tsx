@@ -9,7 +9,7 @@ import {
   Clock, TruckIcon, Search, Share2, AlertTriangle,
   MessageSquare, X, Send, PhoneOff, Mic, Video
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 import dynamic from 'next/dynamic';
 
 import { useShipment, ShipmentStatus } from '@/app/context/ShipmentContext';
@@ -90,7 +90,7 @@ export function ShipmentTracking({ onNavigate }: ShipmentTrackingProps) {
     if (shipment) {
       const url = `${window.location.origin}?track=${shipment.id}`;
       navigator.clipboard.writeText(url);
-      toast.success('Tracking link copied to clipboard!');
+      swal.toast('Tracking link copied to clipboard!', 'success');
     }
   };
 

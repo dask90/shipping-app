@@ -14,7 +14,7 @@ interface CreateShipmentProps {
 }
 
 import { useShipment } from '@/app/context/ShipmentContext';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 
 const MapPicker = dynamic(() => import('./MapPicker'), {
   ssr: false,
@@ -47,19 +47,19 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
   const validateStep = (currentStep: number) => {
     switch (currentStep) {
       case 1:
-        if (!formData.itemName) { toast.error("Item Name is required"); return false; }
-        if (!formData.weight) { toast.error("Weight is required"); return false; }
+        if (!formData.itemName) { swal.toast("Item Name is required", "error"); return false; }
+        if (!formData.weight) { swal.toast("Weight is required", "error"); return false; }
         return true;
       case 2:
         if (formData.pickupType === 'pickup' && !formData.pickupAddress) {
-          toast.error("Pickup Address is required"); return false;
+          swal.toast("Pickup Address is required", "error"); return false;
         }
         return true;
       case 3:
-        if (!formData.destinationCity) { toast.error("Destination City is required"); return false; }
-        if (!formData.destinationAddress) { toast.error("Destination Address is required"); return false; }
-        if (!formData.recipientName) { toast.error("Recipient Name is required"); return false; }
-        if (!formData.recipientPhone) { toast.error("Recipient Phone is required"); return false; }
+        if (!formData.destinationCity) { swal.toast("Destination City is required", "error"); return false; }
+        if (!formData.destinationAddress) { swal.toast("Destination Address is required", "error"); return false; }
+        if (!formData.recipientName) { swal.toast("Recipient Name is required", "error"); return false; }
+        if (!formData.recipientPhone) { swal.toast("Recipient Phone is required", "error"); return false; }
         return true;
       default:
         return true;
@@ -93,7 +93,7 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
       };
 
       createShipment(newShipment);
-      toast.success("Shipment Created Successfully!");
+      swal.alert("Shipment Created", "Your shipment has been created successfully!", "success");
       onNavigate('dashboard');
     }
   };
@@ -244,7 +244,7 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
                       onLocationSelect={(_, __, address) => {
                         if (address) {
                           setFormData({ ...formData, pickupAddress: address });
-                          toast.success("Location pinned!");
+                          swal.toast("Location pinned!", "success");
                         }
                       }}
                     />
@@ -307,7 +307,7 @@ export function CreateShipment({ onNavigate }: CreateShipmentProps) {
                     onLocationSelect={(_, __, address) => {
                       if (address) {
                         setFormData({ ...formData, destinationAddress: address });
-                        toast.success("Location pinned!");
+                        swal.toast("Location pinned!", "success");
                       }
                     }}
                     initialPos={formData.destinationCity === 'Kumasi' ? [6.6666, -1.6163] : [5.6037, -0.1870]}

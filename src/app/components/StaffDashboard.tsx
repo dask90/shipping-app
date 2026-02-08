@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
 import { useShipment } from '@/app/context/ShipmentContext';
 import { CheckCircle, XCircle, User, Package, MapPin, Truck, Clock, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+import { swal } from '@/app/lib/swal';
 
 import { Input } from '@/app/components/ui/input';
 import { Search, Filter } from 'lucide-react';
@@ -54,7 +54,7 @@ export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps)
 
     const handleApprove = (id: string) => {
         approveShipment(id);
-        toast.success(`Shipment ${id} approved`);
+        swal.toast(`Shipment ${id} approved`, 'success');
     };
 
     const handleRejectClick = (id: string) => {
@@ -64,7 +64,7 @@ export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps)
     const handleRejectConfirm = () => {
         if (shipmentToReject) {
             rejectShipment(shipmentToReject);
-            toast.error(`Shipment ${shipmentToReject} rejected`);
+            swal.toast(`Shipment ${shipmentToReject} rejected`, 'error');
             setShipmentToReject(null);
         }
     };
@@ -75,7 +75,7 @@ export function StaffDashboard({ onNavigate: _onNavigate }: StaffDashboardProps)
         if (!agent) return;
 
         assignAgent(id, agent.name, agent.id, agent.phone || '+233 00 000 0000');
-        toast.success(`Agent ${agent.name} assigned to ${id}`);
+        swal.toast(`Agent ${agent.name} assigned to ${id}`, 'success');
         setSelectedAgentId('');
     };
 
