@@ -44,20 +44,39 @@ DROP POLICY IF EXISTS "Agents can update shipment location" ON shipments;
 CREATE POLICY "Agents can update shipment location" ON shipments
     FOR UPDATE USING (auth.uid()::text = "agentId");
 
--- Staff and Admin can do everything
+-- 1. Function to bypass RLS for role checks (fixes infinite recursion)
+CREATE OR REPLACE FUNCTION is_staff_or_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE id = auth.uid() 
+    AND (role = 'staff' OR role = 'admin')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Profiles Table RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+CREATE POLICY "Users can view own profile" ON profiles
+    FOR SELECT USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Staff and Admin can view all profiles" ON profiles;
+CREATE POLICY "Staff and Admin can view all profiles" ON profiles
+    FOR SELECT USING (is_staff_or_admin());
+
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+CREATE POLICY "Users can update own profile" ON profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+-- 3. Update Shipments RLS to use the new function
 DROP POLICY IF EXISTS "Staff and Admin full access" ON shipments;
 CREATE POLICY "Staff and Admin full access" ON shipments
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() 
-            AND (role = 'staff' OR role = 'admin')
-        )
-    );
+    FOR ALL USING (is_staff_or_admin());
 
-ALTER TABLE shipments ADD COLUMN IF NOT EXISTS "deliveryPhotoUrl" TEXT;
-
--- Messages Table for Real-time Chat
+-- 4. Messages Table for Real-time Chat
 CREATE TABLE IF NOT EXISTS messages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     shipment_id TEXT NOT NULL,
@@ -78,16 +97,9 @@ DROP POLICY IF EXISTS "Users can send their own messages" ON messages;
 CREATE POLICY "Users can send their own messages" ON messages
     FOR INSERT WITH CHECK (auth.uid() = sender_id);
 
--- Staff and Admin can view all messages
 DROP POLICY IF EXISTS "Staff and Admin can view all messages" ON messages;
 CREATE POLICY "Staff and Admin can view all messages" ON messages
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() 
-            AND (role = 'staff' OR role = 'admin')
-        )
-    );
+    FOR SELECT USING (is_staff_or_admin());
 
 -- Populate demo coordinates
 UPDATE shipments SET "toLat" = 5.6037, "toLng" = -0.1870, "fromLat" = 5.62, "fromLng" = -0.19 WHERE "toCity" = 'Accra';

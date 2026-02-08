@@ -98,6 +98,8 @@ interface ShipmentContextType {
     issues: any[];
     fetchIssues: () => Promise<void>;
     resolveIssue: (issueId: string) => Promise<void>;
+    allProfiles: any[];
+    fetchAllProfiles: () => Promise<void>;
 }
 
 const ShipmentContext = createContext<ShipmentContextType | undefined>(undefined);
@@ -112,12 +114,14 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+    const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [issues, setIssues] = useState<any[]>([]);
     const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
     // Fetch profile
     const fetchProfile = async (userId: string) => {
         setIsLoadingProfile(true);
+        console.log('[ShipmentContext] Fetching profile for:', userId);
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -126,13 +130,19 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error('[Supabase Profile Error]', error);
+            // Default to customer if profile fetch fails, but allow re-try
+            setUserRole('customer');
             setIsLoadingProfile(false);
             return;
         }
 
         if (data) {
+            console.log('[ShipmentContext] Profile loaded:', data.role);
             setUserProfile(data);
             setUserRole(data.role as any);
+        } else {
+            console.warn('[ShipmentContext] No profile data found for user');
+            setUserRole('customer');
         }
         setIsLoadingProfile(false);
     };
@@ -147,6 +157,19 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             setAvailableAgents(data);
         } else if (error) {
             console.error(`[Supabase Fetch Agents Error] ${error.message}`, error);
+        }
+    };
+
+    const fetchAllProfiles = async () => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('name', { ascending: true });
+
+        if (data) {
+            setAllProfiles(data);
+        } else if (error) {
+            console.error(`[Supabase Fetch All Profiles Error] ${error.message}`, error);
         }
     };
 
@@ -214,14 +237,19 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // Handle Auth State Changes
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Initial session check should be before subscription to prevent race
+        supabase.auth.getSession().then(({ data: { session } }) => {
             handleSession(session);
         });
 
-        // Initial session check
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            handleSession(session);
+        // Handle Auth State Changes
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[ShipmentContext] Auth State Change:', event);
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+                handleSession(session);
+            } else if (event === 'SIGNED_OUT') {
+                handleSession(null);
+            }
         });
 
         return () => {
@@ -732,6 +760,15 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error('[Supabase Send Message Error]', error);
+        } else {
+            // Trigger notification for the receiver
+            await addNotification(
+                receiverId,
+                'New Message',
+                `You have a new message regarding shipment ${shipmentId}`,
+                'info',
+                shipmentId
+            );
         }
 
         return { error };
@@ -819,9 +856,6 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
                         role,
                     }
                 ]);
-
-            // Sign out immediately so they have to login manually
-            await supabase.auth.signOut();
 
             return { error: profileError };
         }
@@ -947,6 +981,8 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             updateEmail,
             availableAgents,
             fetchAgents,
+            allProfiles,
+            fetchAllProfiles,
             acceptRequest,
             updateCurrentLocation,
             reportIssue,

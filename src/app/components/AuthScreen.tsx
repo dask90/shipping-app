@@ -43,7 +43,7 @@ export function AuthScreen() {
     } else {
       toast.success('Account created successfully! You can now log in.');
       setActiveTab('login');
-      setPassword(''); // Clear password for security
+      setPassword('');
     }
     setIsLoading(false);
   };
@@ -58,13 +58,13 @@ export function AuthScreen() {
           </div>
           <h1 className="text-3xl mb-2">ShipExpress</h1>
           <p className="text-muted-foreground">
-            Fast, reliable intercity shipping
+            Complete logistics & shipping solution
           </p>
         </div>
 
-        <Card className="p-6 shadow-lg">
+        <Card className="p-6 border-none shadow-xl bg-white/80 backdrop-blur-sm">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
@@ -72,14 +72,14 @@ export function AuthScreen() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email address</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="Enter email"
-                      className="pl-10"
+                      placeholder="name@example.com"
+                      className="pl-10 h-11"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -88,33 +88,29 @@ export function AuthScreen() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <button type="button" className="text-xs text-primary hover:underline">
+                      Forgot password?
+                    </button>
+                  </div>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter password"
+                    placeholder="••••••••"
+                    className="h-11"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
 
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90"
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Logging in...' : 'Login'}
+                  {isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
               </form>
             </TabsContent>
@@ -122,10 +118,10 @@ export function AuthScreen() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="signup-name">Full Name</Label>
                   <Input
-                    id="name"
-                    placeholder="Enter your name"
+                    id="signup-name"
+                    placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -139,7 +135,7 @@ export function AuthScreen() {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="Enter email"
+                      placeholder="name@example.com"
                       className="pl-10"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -149,13 +145,13 @@ export function AuthScreen() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="signup-phone">Phone Number</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      id="phone"
+                      id="signup-phone"
                       type="tel"
-                      placeholder="Enter phone number"
+                      placeholder="+233..."
                       className="pl-10"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -173,10 +169,8 @@ export function AuthScreen() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    disabled={false}
                   />
                 </div>
-
 
                 <div className="space-y-2">
                   <Label>Register As</Label>
@@ -201,7 +195,6 @@ export function AuthScreen() {
                 >
                   {isLoading ? 'Processing...' : 'Create Account'}
                 </Button>
-
               </form>
             </TabsContent>
           </Tabs>
