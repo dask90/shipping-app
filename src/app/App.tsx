@@ -17,7 +17,7 @@ import { Clock, LogOut } from 'lucide-react';
 
 
 function PendingApproval() {
-  const { signOut, userProfile } = useShipment();
+  const { signOut, userProfile, currentUser, fetchProfile } = useShipment();
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <Card className="max-w-md w-full p-8 text-center space-y-6 border-none shadow-2xl bg-white/80 backdrop-blur-sm">
@@ -38,14 +38,23 @@ function PendingApproval() {
             <li>Usually takes less than 24 hours</li>
           </ul>
         </div>
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center gap-2"
-          onClick={() => signOut()}
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out & Return Home
-        </Button>
+        <div className="space-y-3">
+          <Button
+            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90"
+            onClick={() => currentUser && fetchProfile(currentUser.id)}
+          >
+            <Clock className="w-4 h-4" />
+            Refresh Approval Status
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
+            onClick={() => signOut()}
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out & Return Home
+          </Button>
+        </div>
       </Card>
     </div>
   );

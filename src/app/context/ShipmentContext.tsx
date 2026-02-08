@@ -65,6 +65,7 @@ interface ShipmentContextType {
     currentUser: any;
     userProfile: any;
     isLoadingProfile: boolean;
+    fetchProfile: (userId: string) => Promise<void>;
     setUserRole: (role: 'customer' | 'staff' | 'agent' | 'admin') => void;
     trackingId: string | null;
     setTrackingId: (id: string | null) => void;
@@ -319,6 +320,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
         fetchNotifications(currentUser.id);
 
+        // Real-time notification subscription
         const notificationSub = supabase
             .channel('notifications_changes')
             .on('postgres_changes', {
@@ -333,8 +335,27 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             })
             .subscribe();
 
+        // Real-time profile subscription (to detect approval)
+        const profileSub = supabase
+            .channel(`profile_changes_${currentUser.id}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'profiles',
+                filter: `id=eq.${currentUser.id}`
+            }, (payload) => {
+                console.log('[ShipmentContext] Real-time profile update received:', payload.new);
+                setUserProfile(payload.new);
+                setUserRole(payload.new.role as any);
+                if (payload.new.is_approved) {
+                    swal.toast('Your account has been approved!', 'success');
+                }
+            })
+            .subscribe();
+
         return () => {
             supabase.removeChannel(notificationSub);
+            supabase.removeChannel(profileSub);
         };
     }, [currentUser?.id]);
 
@@ -978,6 +999,7 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
             currentUser,
             userProfile,
             isLoadingProfile,
+            fetchProfile,
             setUserRole,
             trackingId,
             setTrackingId,
